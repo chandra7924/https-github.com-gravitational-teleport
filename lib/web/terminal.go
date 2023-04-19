@@ -1117,10 +1117,14 @@ func (t *TerminalStream) Read(out []byte) (n int, err error) {
 
 	ty, bytes, err := t.ws.ReadMessage()
 	if err != nil {
+		if errors.Is(err, io.ErrUnexpectedEOF) || websocket.IsCloseError(err, websocket.CloseAbnormalClosure) {
+			return 0, io.ErrUnexpectedEOF
+		}
+
 		// if the connection has closed, we must return io.EOF in order to abort
 		// the websocket copy loop
-		if err == io.EOF || errors.Is(err, net.ErrClosed) ||
-			websocket.IsCloseError(err, websocket.CloseAbnormalClosure, websocket.CloseGoingAway, websocket.CloseNormalClosure) {
+		if errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed) ||
+			websocket.IsCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure) {
 			return 0, io.EOF
 		}
 

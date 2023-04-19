@@ -54,6 +54,7 @@ import (
 	"github.com/gravitational/teleport/lib/utils"
 	"github.com/gravitational/teleport/lib/web"
 	"github.com/gravitational/teleport/lib/web/app"
+	websession "github.com/gravitational/teleport/lib/web/session"
 )
 
 // Pack contains identity as well as initialized Teleport clusters and instances.
@@ -242,7 +243,7 @@ func (p *Pack) initWebSession(t *testing.T) {
 	// Extract session cookie and bearer token.
 	require.Len(t, resp.Cookies(), 1)
 	cookie := resp.Cookies()[0]
-	require.Equal(t, cookie.Name, web.CookieName)
+	require.Equal(t, cookie.Name, websession.CookieName)
 
 	p.webCookie = cookie.Value
 	p.webToken = csResp.Token
@@ -346,7 +347,7 @@ func (p *Pack) makeWebapiRequest(method, endpoint string, payload []byte) (int, 
 	}
 
 	req.AddCookie(&http.Cookie{
-		Name:  web.CookieName,
+		Name:  websession.CookieName,
 		Value: p.webCookie,
 	})
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %v", p.webToken))

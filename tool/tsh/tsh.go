@@ -894,6 +894,13 @@ func Run(ctx context.Context, args []string, opts ...cliOption) error {
 	benchSSH.Flag("port", "SSH port on a remote host").Short('p').Int32Var(&cf.NodePort)
 	benchSSH.Flag("interactive", "Create interactive SSH session").BoolVar(&cf.BenchInteractive)
 	benchSSH.Flag("random", "Connect to random hosts for each SSH session. The provided hostname must be all: tsh bench ssh --random <user>@all <command>").BoolVar(&cf.BenchRandom)
+
+	benchWeb := bench.Command("web", "Run web session benchmark test")
+	benchWeb.Arg("[user@]host", "Remote hostname and the login to use").Required().StringVar(&cf.UserHost)
+	benchWeb.Arg("command", "Command to execute on a remote host").Required().StringsVar(&cf.RemoteCommand)
+	benchWeb.Flag("port", "SSH port on a remote host").Short('p').Int32Var(&cf.NodePort)
+	benchWeb.Flag("random", "Connect to random hosts for each SSH session. The provided hostname must be all: tsh bench web --random <user>@all <command>").BoolVar(&cf.BenchRandom)
+
 	var benchKubeOpts benchKubeOptions
 	benchKube := bench.Command("kube", "Run Kube benchmark test").Hidden()
 	benchKube.Flag("kube-namespace", "Selects the ").Default("default").StringVar(&benchKubeOpts.namespace)
@@ -1167,6 +1174,15 @@ func Run(ctx context.Context, args []string, opts ...cliOption) error {
 			&benchmark.SSHBenchmark{
 				Command: cf.RemoteCommand,
 				Random:  cf.BenchRandom,
+			},
+		)
+	case benchWeb.FullCommand():
+		err = onBenchmark(
+			&cf,
+			&benchmark.WebBenchmark{
+				Command:  cf.RemoteCommand,
+				Random:   cf.BenchRandom,
+				Duration: cf.BenchDuration,
 			},
 		)
 	case benchListKube.FullCommand():
