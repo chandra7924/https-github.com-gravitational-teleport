@@ -16,7 +16,9 @@ limitations under the License.
 
 package services
 
-import "context"
+import (
+	"context"
+)
 
 // ProcessReloadContext adds a flag to the context to indicate the Teleport
 // process is reloading.

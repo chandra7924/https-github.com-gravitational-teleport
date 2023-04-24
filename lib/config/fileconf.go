@@ -2083,6 +2083,11 @@ type Proxy struct {
 
 	// Assist is a set of options related to the Teleport Assist feature.
 	Assist *AssistOptions `yaml:"assist,omitempty"`
+
+	// UseXFFHeader enables the service to take client source IPs from the
+	// "X-Forwarded-For" headers for web APIs recevied from layer 7 load
+	// balancers or reverse proxies.
+	UseXFFHeader string `yaml:"use_xff_header,omitempty"`
 }
 
 // UIConfig provides config options for the web UI served by the proxy service.

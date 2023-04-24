@@ -45,6 +45,7 @@ import (
 	"github.com/gravitational/teleport/api/client/webclient"
 	"github.com/gravitational/teleport/api/constants"
 	"github.com/gravitational/teleport/api/types"
+	apiutils "github.com/gravitational/teleport/api/utils"
 	"github.com/gravitational/teleport/lib"
 	"github.com/gravitational/teleport/lib/backend"
 	"github.com/gravitational/teleport/lib/backend/lite"
@@ -1077,6 +1078,11 @@ func applyProxyConfig(fc *FileConfig, cfg *servicecfg.Config) error {
 		return trace.Wrap(err)
 	}
 	cfg.Proxy.ACME = *acme
+
+	cfg.Proxy.UseXFFHeader, err = apiutils.ParseBool(fc.Proxy.UseXFFHeader)
+	if err != nil {
+		return trace.Wrap(err)
+	}
 
 	return nil
 }
