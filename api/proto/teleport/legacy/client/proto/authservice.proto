@@ -2648,6 +2648,19 @@ service AuthService {
   // GetSSODiagnosticInfo returns SSO diagnostic info records.
   rpc GetSSODiagnosticInfo(GetSSODiagnosticInfoRequest) returns (types.SSODiagnosticInfo);
 
+  // GetServerInfos returns a stream of ServerInfos.
+  rpc GetServerInfos(google.protobuf.Empty) returns (stream types.ServerInfoV1);
+  // GetServerInfo returns a ServerInfo by name.
+  rpc GetServerInfo(types.ResourceRequest) returns (types.ServerInfoV1);
+  // UpsertServerInfo upserts a ServerInfo.
+  rpc UpsertServerInfo(types.ServerInfoV1) returns (google.protobuf.Empty);
+  // UpsertServerInfos upserts multiple ServerInfos.
+  rpc UpsertServerInfos(types.ServerInfoV1List) returns (google.protobuf.Empty);
+  // DeleteServerInfo deletes a ServerInfo by name.
+  rpc DeleteServerInfo(types.ResourceRequest) returns (google.protobuf.Empty);
+  // DeleteAllServerInfos deletes all ServerInfos.
+  rpc DeleteAllServerInfos(google.protobuf.Empty) returns (google.protobuf.Empty);
+
   // GetTrustedCluster gets a Trusted Cluster resource by name.
   rpc GetTrustedCluster(types.ResourceRequest) returns (types.TrustedClusterV2);
   // GetTrustedClusters gets all current Trusted Cluster resources.
