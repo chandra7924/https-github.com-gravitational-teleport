@@ -6,7 +6,7 @@ source vars.env
 
 values_yaml="$STATE_DIR/teleport-values.yaml"
 
-helm install teleport teleport/teleport-cluster \
+helm upgrade --install teleport teleport/teleport-cluster \
   --create-namespace \
   --namespace teleport \
   -f "$values_yaml"

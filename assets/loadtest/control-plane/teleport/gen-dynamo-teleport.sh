@@ -12,6 +12,7 @@ cat > "$values_yaml" <<EOF
 chartMode: aws
 clusterName: ${CLUSTER_NAME}.${ROUTE53_ZONE}      # Name of your cluster. Use the FQDN you intend to configure in DNS below.
 teleportVersionOverride: ${TELEPORT_VERSION}
+proxyListenerMode: "multiplex"
 aws:
   region: ${AWS_REGION}                           # AWS region
   backendTable: ${CLUSTER_NAME}-backend           # DynamoDB table to use for the Teleport backend
@@ -30,4 +31,8 @@ podSecurityPolicy:
   enabled: false
 podMonitor:
   enabled: true
+auth:
+  teleportConfig:
+    kubernetes_service:
+      enabled: false
 EOF
