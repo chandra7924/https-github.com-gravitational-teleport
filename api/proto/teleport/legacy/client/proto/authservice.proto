@@ -2069,6 +2069,8 @@ message DownstreamInventoryOneOf {
     DownstreamInventoryHello Hello = 1;
     // Ping triggers an upstream pong (used for testing/debug).
     DownstreamInventoryPing Ping = 2;
+    // UpdateLabels updates the instance's labels.
+    DownstreamInventoryUpdateLabels UpdateLabels = 3;
   }
 }
 
@@ -2131,6 +2133,15 @@ message DownstreamInventoryHello {
   string Version = 1;
   // ServerID advertises the server ID of the auth server.
   string ServerID = 2;
+}
+
+// DownstreamInventoryUpdateLabels is the message sent down the inventory
+// control stream to update the instance's labels.
+message DownstreamInventoryUpdateLabels {
+  // ServerID advertises the server ID of the instance.
+  string ServerID = 1;
+  // Labels is the new set of labels for the instance.
+  map<string, string> Labels = 2;
 }
 
 // InventoryHeartbeat announces information about instance state.

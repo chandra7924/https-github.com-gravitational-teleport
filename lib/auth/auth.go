@@ -3569,6 +3569,16 @@ func (a *Server) PingInventory(ctx context.Context, req proto.InventoryPingReque
 	}, nil
 }
 
+// UpdateLabels updates the labels on an instance over the inventory control
+// stream.
+func (a *Server) UpdateLabels(ctx context.Context, req proto.DownstreamInventoryUpdateLabels) error {
+	stream, ok := a.inventory.GetControlStream(req.ServerID)
+	if !ok {
+		return trace.NotFound("no control stream found for server %q", req.ServerID)
+	}
+	return trace.Wrap(stream.UpdateLabels(ctx, req))
+}
+
 // TokenExpiredOrNotFound is a special message returned by the auth server when provisioning
 // tokens are either past their TTL, or could not be found.
 const TokenExpiredOrNotFound = "token expired or not found"
