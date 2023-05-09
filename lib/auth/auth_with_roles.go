@@ -1126,7 +1126,7 @@ func (a *ServerWithRoles) PingInventory(ctx context.Context, req proto.Inventory
 	return a.authServer.PingInventory(ctx, req)
 }
 
-func (a *ServerWithRoles) UpdateLabels(ctx context.Context, req proto.DownstreamInventoryUpdateLabels) error {
+func (a *ServerWithRoles) UpdateLabels(ctx context.Context, req proto.InventoryUpdateLabelsRequest) error {
 	// admin-only for now, but we'll eventually want to develop an RBAC syntax for
 	// the inventory APIs once they are more developed.
 	if !a.hasBuiltinRole(types.RoleAdmin) {

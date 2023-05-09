@@ -2980,7 +2980,6 @@ func (g *GRPCServer) GetServerInfos(_ *emptypb.Empty, stream proto.AuthService_G
 	}
 
 	infos := auth.GetServerInfos(stream.Context())
-	// TODO(atburke): throttle
 	for infos.Next() {
 		si, ok := infos.Item().(*types.ServerInfoV1)
 		if !ok {

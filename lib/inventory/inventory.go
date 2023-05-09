@@ -350,7 +350,7 @@ type UpstreamHandle interface {
 	// pre-heartbeat state.
 	HeartbeatInstance()
 	// UpdateLabels updates the labels on the instance.
-	UpdateLabels(context.Context, proto.DownstreamInventoryUpdateLabels) error
+	UpdateLabels(ctx context.Context, labels map[string]string) error
 }
 
 // instanceStateTracker tracks the state of a connected instance from the point of view of
@@ -589,6 +589,9 @@ func (h *upstreamHandle) HasService(service types.SystemRole) bool {
 	return false
 }
 
-func (h *upstreamHandle) UpdateLabels(ctx context.Context, req proto.DownstreamInventoryUpdateLabels) error {
+func (h *upstreamHandle) UpdateLabels(ctx context.Context, labels map[string]string) error {
+	req := proto.DownstreamInventoryUpdateLabels{
+		Labels: labels,
+	}
 	return trace.Wrap(h.Send(ctx, req))
 }
