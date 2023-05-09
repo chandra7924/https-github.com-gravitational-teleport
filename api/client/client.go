@@ -1856,20 +1856,6 @@ func (c *Client) UpsertServerInfo(ctx context.Context, serverInfo types.ServerIn
 	return trail.FromGRPC(err)
 }
 
-// UpsertServerInfos upserts multiple ServerInfos.
-func (c *Client) UpsertServerInfos(ctx context.Context, serverInfos []types.ServerInfo) error {
-	var infoList types.ServerInfoV1List
-	for _, si := range serverInfos {
-		infoV1, ok := si.(*types.ServerInfoV1)
-		if !ok {
-			return trace.BadParameter("invalid type %T", si)
-		}
-		infoList.ServerInfos = append(infoList.ServerInfos, infoV1)
-	}
-	_, err := c.grpc.UpsertServerInfos(ctx, &infoList)
-	return trail.FromGRPC(err)
-}
-
 // DeleteServerInfo deletes a ServerInfo by name.
 func (c *Client) DeleteServerInfo(ctx context.Context, name string) error {
 	if name == "" {

@@ -4087,15 +4087,6 @@ func (a *ServerWithRoles) UpsertServerInfo(ctx context.Context, si types.ServerI
 	return a.authServer.UpsertServerInfo(ctx, si)
 }
 
-// UpsertServerInfos upserts multiple ServerInfos.
-func (a *ServerWithRoles) UpsertServerInfos(ctx context.Context, si []types.ServerInfo) error {
-	if err := a.action(apidefaults.Namespace, types.KindServerInfo, types.VerbCreate, types.VerbUpdate); err != nil {
-		return trace.Wrap(err)
-	}
-
-	return a.authServer.UpsertServerInfos(ctx, si)
-}
-
 // DeleteServerInfo deletes a ServerInfo by name.
 func (a *ServerWithRoles) DeleteServerInfo(ctx context.Context, name string) error {
 	if err := a.action(apidefaults.Namespace, types.KindServerInfo, types.VerbDelete); err != nil {

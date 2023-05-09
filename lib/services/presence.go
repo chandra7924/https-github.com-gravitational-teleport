@@ -127,9 +127,6 @@ type Presence interface {
 	// UpsertServerInfo upserts a ServerInfo.
 	UpsertServerInfo(ctx context.Context, si types.ServerInfo) error
 
-	// UpsertServerInfos upserts multiple ServerInfos.
-	UpsertServerInfos(ctx context.Context, si []types.ServerInfo) error
-
 	// DeleteServerInfo deletes a ServerInfo by name.
 	DeleteServerInfo(ctx context.Context, name string) error
 

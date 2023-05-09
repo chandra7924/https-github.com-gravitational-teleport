@@ -5574,9 +5574,3 @@ message ServerInfoSpecV1 {
   // AWS matches an EC2 instance.
   AWSInfo AWS = 1 [(gogoproto.jsontag) = "aws,omitempty"];
 }
-
-// ServerInfoV1List is a list of ServerInfos.
-message ServerInfoV1List {
-  // ServerInfos is a list of ServerInfos.
-  repeated ServerInfoV1 ServerInfos = 1;
-}

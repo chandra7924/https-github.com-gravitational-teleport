@@ -3027,22 +3027,6 @@ func (g *GRPCServer) UpsertServerInfo(ctx context.Context, si *types.ServerInfoV
 	return &emptypb.Empty{}, nil
 }
 
-// UpsertServerInfos upserts multiple ServerInfos.
-func (g *GRPCServer) UpsertServerInfos(ctx context.Context, serverInfos *types.ServerInfoV1List) (*emptypb.Empty, error) {
-	auth, err := g.authenticate(ctx)
-	if err != nil {
-		return nil, trace.Wrap(err)
-	}
-	var infos []types.ServerInfo
-	for _, si := range serverInfos.ServerInfos {
-		infos = append(infos, si)
-	}
-	if err := auth.ServerWithRoles.UpsertServerInfos(ctx, infos); err != nil {
-		return nil, trace.Wrap(err)
-	}
-	return &emptypb.Empty{}, nil
-}
-
 // DeleteServerInfo deletes a ServerInfo by name.
 func (g *GRPCServer) DeleteServerInfo(ctx context.Context, req *types.ResourceRequest) (*emptypb.Empty, error) {
 	auth, err := g.authenticate(ctx)

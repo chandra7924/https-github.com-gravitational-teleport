@@ -2665,8 +2665,6 @@ service AuthService {
   rpc GetServerInfo(types.ResourceRequest) returns (types.ServerInfoV1);
   // UpsertServerInfo upserts a ServerInfo.
   rpc UpsertServerInfo(types.ServerInfoV1) returns (google.protobuf.Empty);
-  // UpsertServerInfos upserts multiple ServerInfos.
-  rpc UpsertServerInfos(types.ServerInfoV1List) returns (google.protobuf.Empty);
   // DeleteServerInfo deletes a ServerInfo by name.
   rpc DeleteServerInfo(types.ResourceRequest) returns (google.protobuf.Empty);
   // DeleteAllServerInfos deletes all ServerInfos.
