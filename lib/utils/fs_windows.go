@@ -3,6 +3,8 @@
 
 package utils
 
+import "strings"
+
 /*
 Copyright 2018 Gravitational, Inc.
 
@@ -29,5 +31,10 @@ limitations under the License.
 const lockPostfix = ".lock.tmp"
 
 func getPlatformLockFilePath(path string) string {
+	// If target file is itself dedicated lockfile, we don't create another lockfile, since
+	// we don't intend to read/write the target file itself.
+	if strings.HasSuffix(path, ".lock") {
+		return path
+	}
 	return path + lockPostfix
 }

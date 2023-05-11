@@ -581,6 +581,49 @@ func newKubeCredentialsCommand(parent *kingpin.CmdClause) *kubeCredentialsComman
 	return c
 }
 
+func getKubeCredLockfilePath(homePath, proxy string) (string, error) {
+	profilePath := profile.FullProfilePath(homePath)
+	// tsh stores the profiles using the proxy host as the profile name.
+	profileName, err := utils.Host(proxy)
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+
+	return keypaths.KubeCredLockfilePath(profilePath, profileName), nil
+}
+
+var ErrKubeCredLockfileFound = trace.AlreadyExists("Having problems with relogin, please use 'tsh login/tsh kube login' manually")
+
+func takeKubeCredLock(ctx context.Context, homePath, proxy string) (func(bool), error) {
+	kubeCredLockfilePath, err := getKubeCredLockfilePath(homePath, proxy)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	// If kube credentials lockfile already exists, it means last time kube credentials was called
+	// we had an error while trying to issue certificate, return an error asking user to login manually.
+	if _, err := os.Stat(kubeCredLockfilePath); err == nil {
+		log.Debugf("Kube credentials lockfile was found at %q, aborting.", kubeCredLockfilePath)
+		return nil, ErrKubeCredLockfileFound
+	}
+
+	if _, err := utils.EnsureLocalPath(kubeCredLockfilePath, "", ""); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	// Take a lock while we're trying to issue certificate and possibly relogin
+	unlock, err := utils.FSTryWriteLockTimeout(ctx, kubeCredLockfilePath, 5*time.Second)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	return func(removeFile bool) {
+		if removeFile {
+			os.Remove(kubeCredLockfilePath)
+		}
+		unlock()
+	}, nil
+}
+
 func (c *kubeCredentialsCommand) run(cf *CLIConf) error {
 	// client.LoadKeysToKubeFromStore function is used to speed up the credentials
 	// loading process since Teleport Store transverses the entire store to find the keys.
@@ -603,6 +646,12 @@ func (c *kubeCredentialsCommand) run(cf *CLIConf) error {
 			return c.writeByteResponse(cf.Stdout(), kubeCert, privKey, crt.NotAfter)
 		}
 	}
+
+	unlockKubeCred, err := takeKubeCredLock(cf.Context, cf.HomePath, cf.Proxy)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	defer unlockKubeCred(false) // by default (in case of an error) we don't delete lockfile; safe to call twice
 
 	tc, err := makeClient(cf, true)
 	if err != nil {
@@ -628,6 +677,9 @@ func (c *kubeCredentialsCommand) run(cf *CLIConf) error {
 		}
 		if crt != nil && time.Until(crt.NotAfter) > time.Minute {
 			log.Debugf("Re-using existing TLS cert for Kubernetes cluster %q", c.kubeCluster)
+			// Unlock and remove the lockfile so subsequent tsh kube credentials calls don't exit early
+			unlockKubeCred(true)
+
 			return c.writeKeyResponse(cf.Stdout(), k, c.kubeCluster)
 		}
 		// Otherwise, cert for this k8s cluster is missing or expired. Request
@@ -661,6 +713,9 @@ func (c *kubeCredentialsCommand) run(cf *CLIConf) error {
 	if err := tc.LocalAgent().AddKubeKey(k); err != nil {
 		return trace.Wrap(err)
 	}
+
+	// Unlock and remove the lockfile so subsequent tsh kube credentials calls don't exit early
+	unlockKubeCred(true)
 
 	return c.writeKeyResponse(cf.Stdout(), k, c.kubeCluster)
 }

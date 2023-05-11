@@ -122,6 +122,11 @@ func (fs *FSKeyStore) ppkFilePath(idx KeyIndex) string {
 	return keypaths.PPKFilePath(fs.KeyDir, idx.ProxyHost, idx.Username)
 }
 
+// kubeCredLockfilePath returns kube credentials lockfile path for the given KeyIndex.
+func (fs *FSKeyStore) kubeCredLockfilePath(idx KeyIndex) string {
+	return keypaths.KubeCredLockfilePath(fs.KeyDir, idx.ProxyHost)
+}
+
 // publicKeyPath returns the public key path for the given KeyIndex.
 func (fs *FSKeyStore) publicKeyPath(idx KeyIndex) string {
 	return keypaths.PublicKeyPath(fs.KeyDir, idx.ProxyHost, idx.Username)
@@ -238,6 +243,8 @@ func (fs *FSKeyStore) DeleteKey(idx KeyIndex) error {
 	if runtime.GOOS == constants.WindowsOS {
 		os.Remove(fs.ppkFilePath(idx))
 	}
+
+	os.Remove(fs.kubeCredLockfilePath(idx))
 
 	// Clear ClusterName to delete the user certs stored for all clusters.
 	idx.ClusterName = ""

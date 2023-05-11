@@ -52,7 +52,9 @@ import (
 	"github.com/gravitational/teleport/api/types"
 	"github.com/gravitational/teleport/api/types/events"
 	"github.com/gravitational/teleport/api/types/wrappers"
+	apiutils "github.com/gravitational/teleport/api/utils"
 	"github.com/gravitational/teleport/api/utils/keys"
+	"github.com/gravitational/teleport/integration/kube"
 	"github.com/gravitational/teleport/lib"
 	"github.com/gravitational/teleport/lib/auth"
 	"github.com/gravitational/teleport/lib/auth/mocku2f"
@@ -1922,6 +1924,118 @@ func tryCreateTrustedCluster(t *testing.T, authServer *auth.Server, trustedClust
 		require.FailNow(t, "Terminating on unexpected problem", "%v.", err)
 	}
 	require.FailNow(t, "Timeout creating trusted cluster")
+}
+
+func TestKubeCredentialsLock(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	const kubeClusterName = "kube-cluster"
+
+	t.Run("remaining lockfile prevents subsequent calls", func(t *testing.T) {
+		tmpHomePath := t.TempDir()
+
+		err := Run(ctx, []string{
+			"kube",
+			"credentials",
+			"--proxy", "fake-proxy",
+			"--teleport-cluster", "teleport",
+			"--kube-cluster", kubeClusterName,
+		}, setHomePath(tmpHomePath))
+		require.Error(t, err) // First run fails because fake proxy doesn't exist
+
+		err = Run(ctx, []string{
+			"kube",
+			"credentials",
+			"--proxy", "fake-proxy",
+			"--teleport-cluster", "teleport",
+			"--kube-cluster", kubeClusterName,
+		}, setHomePath(tmpHomePath))
+		require.ErrorIs(t, ErrKubeCredLockfileFound, err) // Second run returns error related to the kube cred lockfile, since last run failed
+	})
+
+	t.Run("running kube credentials in parallel", func(t *testing.T) {
+		tmpHomePath := t.TempDir()
+
+		connector := mockConnector(t)
+		alice, err := types.NewUser("alice@example.com")
+		require.NoError(t, err)
+
+		kubeRole, err := types.NewRole("kube-access", types.RoleSpecV6{
+			Allow: types.RoleConditions{
+				KubernetesLabels: types.Labels{types.Wildcard: apiutils.Strings{types.Wildcard}},
+				KubeGroups:       []string{kube.TestImpersonationGroup},
+				KubeUsers:        []string{alice.GetName()},
+				KubernetesResources: []types.KubernetesResource{
+					{
+						Kind: types.KindKubePod, Name: types.Wildcard, Namespace: types.Wildcard,
+					},
+				},
+			},
+		})
+		require.NoError(t, err)
+		alice.SetRoles([]string{"access", kubeRole.GetName()})
+
+		require.NoError(t, err)
+		authProcess, proxyProcess := makeTestServers(t, withBootstrap(connector, alice, kubeRole))
+		authServer := authProcess.GetAuthServer()
+		require.NotNil(t, authServer)
+		proxyAddr, err := proxyProcess.ProxyWebAddr()
+		require.NoError(t, err)
+
+		teleportClusterName, err := authServer.GetClusterName()
+		require.NoError(t, err)
+
+		kubeCluster, err := types.NewKubernetesClusterV3(types.Metadata{
+			Name:   kubeClusterName,
+			Labels: map[string]string{},
+		},
+			types.KubernetesClusterSpecV3{},
+		)
+		kubeServer, err := types.NewKubernetesServerV3FromCluster(kubeCluster, kubeClusterName, kubeClusterName)
+		require.NoError(t, err)
+		_, err = authServer.UpsertKubernetesServer(context.Background(), kubeServer)
+		require.NoError(t, err)
+
+		err = Run(context.Background(), []string{
+			"login",
+			"--insecure",
+			"--debug",
+			"--auth", connector.GetName(),
+			"--proxy", proxyAddr.String(),
+		}, setHomePath(tmpHomePath), func(cf *CLIConf) error {
+			cf.mockSSOLogin = mockSSOLogin(t, authServer, alice)
+			return nil
+		})
+		require.NoError(t, err)
+
+		_, err = profile.FromDir(tmpHomePath, "")
+		require.NoError(t, err)
+
+		errChan := make(chan error)
+		runCreds := func() {
+			err = Run(ctx, []string{
+				"kube",
+				"credentials",
+				"--proxy", proxyAddr.String(),
+				"--teleport-cluster", teleportClusterName.GetClusterName(),
+				"--kube-cluster", kubeClusterName,
+			}, setHomePath(tmpHomePath))
+			errChan <- err
+		}
+
+		runsCount := 3
+		for i := 0; i < runsCount; i++ {
+			go runCreds()
+		}
+		for i := 0; i < runsCount; i++ {
+			select {
+			case err := <-errChan:
+				require.NoError(t, err)
+			case <-time.After(time.Second * 1):
+				require.Fail(t, "Running kube credentials timed out")
+			}
+		}
+	})
 }
 
 func TestSSHHeadless(t *testing.T) {
