@@ -117,7 +117,7 @@ var (
 	eventCount = prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Name: "etcd_events",
-			Help: "Number of etcd events",
+			Help: "Number of etcd events processed",
 		},
 	)
 	eventBackpressure = prometheus.NewCounter(
@@ -130,6 +130,7 @@ var (
 	prometheusCollectors = []prometheus.Collector{
 		writeLatencies, txLatencies, batchReadLatencies,
 		readLatencies, writeRequests, txRequests, batchReadRequests, readRequests,
+		eventCount, eventBackpressure,
 	}
 )
 
