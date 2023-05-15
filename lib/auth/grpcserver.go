@@ -2987,7 +2987,7 @@ func (g *GRPCServer) GetServerInfos(_ *emptypb.Empty, stream proto.AuthService_G
 		}
 		if err := stream.Send(si); err != nil {
 			infos.Done()
-			if trace.IsEOF(err) {
+			if errors.Is(err, io.EOF) {
 				return nil
 			}
 			return trace.Wrap(err)
@@ -3009,7 +3009,7 @@ func (g *GRPCServer) GetServerInfo(ctx context.Context, req *types.ResourceReque
 	}
 	serverInfoV1, ok := si.(*types.ServerInfoV1)
 	if !ok {
-		return nil, trace.Errorf("encountered unexpected Server Info type %T", si)
+		return nil, trace.BadParameter("encountered unexpected Server Info type %T", si)
 	}
 	return serverInfoV1, nil
 }

@@ -1132,7 +1132,7 @@ func (a *ServerWithRoles) UpdateLabels(ctx context.Context, req proto.InventoryU
 	if !a.hasBuiltinRole(types.RoleAdmin) {
 		return trace.AccessDenied("requires builtin admin role")
 	}
-	return a.authServer.UpdateLabels(ctx, req)
+	return trace.Wrap(a.authServer.UpdateLabels(ctx, req))
 }
 
 func (a *ServerWithRoles) GetInstances(ctx context.Context, filter types.InstanceFilter) stream.Stream[types.Instance] {
@@ -4075,7 +4075,8 @@ func (a *ServerWithRoles) GetServerInfo(ctx context.Context, name string) (types
 		return nil, trace.Wrap(err)
 	}
 
-	return a.authServer.GetServerInfo(ctx, name)
+	info, err := a.authServer.GetServerInfo(ctx, name)
+	return info, trace.Wrap(err)
 }
 
 // UpsertServerInfo upserts a ServerInfo.
@@ -4084,7 +4085,7 @@ func (a *ServerWithRoles) UpsertServerInfo(ctx context.Context, si types.ServerI
 		return trace.Wrap(err)
 	}
 
-	return a.authServer.UpsertServerInfo(ctx, si)
+	return trace.Wrap(a.authServer.UpsertServerInfo(ctx, si))
 }
 
 // DeleteServerInfo deletes a ServerInfo by name.
@@ -4093,7 +4094,7 @@ func (a *ServerWithRoles) DeleteServerInfo(ctx context.Context, name string) err
 		return trace.Wrap(err)
 	}
 
-	return a.authServer.DeleteServerInfo(ctx, name)
+	return trace.Wrap(a.authServer.DeleteServerInfo(ctx, name))
 }
 
 // DeleteAllServerInfos deletes all ServerInfos.
@@ -4102,7 +4103,7 @@ func (a *ServerWithRoles) DeleteAllServerInfos(ctx context.Context) error {
 		return trace.Wrap(err)
 	}
 
-	return a.authServer.DeleteAllServerInfos(ctx)
+	return trace.Wrap(a.authServer.DeleteAllServerInfos(ctx))
 }
 
 func (a *ServerWithRoles) GetTrustedClusters(ctx context.Context) ([]types.TrustedCluster, error) {

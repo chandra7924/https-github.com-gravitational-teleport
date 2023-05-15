@@ -3170,6 +3170,11 @@ func TestServerInfoCRUD(t *testing.T) {
 		_, err = clt.GetServerInfo(ctx, serverInfo1.GetName())
 		require.Error(t, err)
 		require.True(t, trace.IsNotFound(err))
+
+		// Expect other server info still exists.
+		si, err := clt.GetServerInfo(ctx, serverInfo2.GetName())
+		require.NoError(t, err)
+		requireResourcesEqual(t, serverInfo2, si)
 	})
 
 	t.Run("DeleteAllServerInfos", func(t *testing.T) {
