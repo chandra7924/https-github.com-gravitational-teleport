@@ -68,7 +68,7 @@ type DownstreamHandle interface {
 	CloseContext() context.Context
 	// Close closes the downstream handle.
 	Close() error
-	// GetUpstreamLabels gets the labels recieved from upstream.
+	// GetUpstreamLabels gets the labels received from upstream.
 	GetUpstreamLabels() map[string]string
 }
 
