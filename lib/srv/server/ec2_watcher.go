@@ -55,6 +55,36 @@ type EC2Instances struct {
 	Instances []*ec2.Instance
 }
 
+func (i *EC2Instances) ServerInfos() ([]types.ServerInfo, error) {
+	serverInfos := make([]types.ServerInfo, 0, len(i.Instances))
+	for _, instance := range i.Instances {
+		name := i.AccountID + "-" + aws.StringValue(instance.InstanceId)
+		tags := make(map[string]string, len(instance.Tags))
+		for _, tag := range instance.Tags {
+			key := aws.StringValue(tag.Key)
+			if key != "" {
+				tags[key] = aws.StringValue(tag.Value)
+			}
+		}
+
+		si, err := types.NewServerInfo(types.Metadata{
+			Name:   name,
+			Labels: tags,
+		}, types.ServerInfoSpecV1{
+			AWS: &types.ServerInfoSpecV1_AWSInfo{
+				AccountID:  i.AccountID,
+				InstanceID: aws.StringValue(instance.InstanceId),
+			},
+		})
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		serverInfos = append(serverInfos, si)
+	}
+
+	return serverInfos, nil
+}
+
 // NewEC2Watcher creates a new EC2 watcher instance.
 func NewEC2Watcher(ctx context.Context, matchers []services.AWSMatcher, clients cloud.Clients) (*Watcher, error) {
 	cancelCtx, cancelFn := context.WithCancel(ctx)

@@ -124,6 +124,9 @@ type Server struct {
 	kubeFetchers []common.Fetcher
 	// databaseFetchers holds all database fetchers.
 	databaseFetchers []common.Fetcher
+
+	// reconciler periodically reconciles the labels of discovered instances.
+	reconciler *labelReconciler
 }
 
 // New initializes a discovery Server
@@ -176,6 +179,13 @@ func (s *Server) initAWSWatchers(matchers []services.AWSMatcher) error {
 		s.ec2Installer = server.NewSSMInstaller(server.SSMInstallerConfig{
 			Emitter: s.Emitter,
 		})
+		lr, err := newLabelReconciler(&labelReconcilerConfig{
+			accessPoint: s.AccessPoint,
+		})
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		s.reconciler = lr
 	}
 
 	// Add database fetchers.
@@ -384,6 +394,12 @@ func (s *Server) handleEC2Instances(instances *server.EC2Instances) error {
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	serverInfos, err := instances.ServerInfos()
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	s.reconciler.queueServerInfos(serverInfos)
 	s.filterExistingEC2Nodes(instances)
 	if len(instances.Instances) == 0 {
 		return trace.NotFound("all fetched nodes already enrolled")
@@ -519,6 +535,7 @@ func (s *Server) handleAzureDiscovery() {
 func (s *Server) Start() error {
 	if s.ec2Watcher != nil {
 		go s.handleEC2Discovery()
+		go s.reconciler.run(s.ctx)
 	}
 	if s.azureWatcher != nil {
 		go s.handleAzureDiscovery()
