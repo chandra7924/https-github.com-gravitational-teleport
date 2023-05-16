@@ -1600,8 +1600,6 @@ func (f *fakeAccessPoint) UpdateKubernetesCluster(ctx context.Context, cluster t
 }
 
 func (f *fakeAccessPoint) UpsertServerInfo(ctx context.Context, si types.ServerInfo) error {
-	fmt.Println("fakeAccessPoint: upserting", si.GetName())
 	f.upsertedServerInfos = append(f.upsertedServerInfos, si)
-	fmt.Println(len(f.upsertedServerInfos))
 	return nil
 }
