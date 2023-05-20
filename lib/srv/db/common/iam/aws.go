@@ -34,6 +34,8 @@ func GetAWSPolicyDocument(db types.Database) (*awslib.PolicyDocument, Placeholde
 		return getRDSPolicyDocument(db)
 	case types.DatabaseTypeRedshift:
 		return getRedshiftPolicyDocument(db)
+	case types.DatabaseTypeElastiCache:
+		return getElastiCachePolicyDocument(db)
 	default:
 		return nil, nil, trace.BadParameter("GetAWSPolicyDocument is not supported for database type %s", db.GetType())
 	}
@@ -159,6 +161,34 @@ func getRedshiftServerlessPolicyDocument(db types.Database) (*awslib.PolicyDocum
 		Actions: awslib.SliceOrString{"redshift-serverless:GetCredentials"},
 		Resources: awslib.SliceOrString{
 			fmt.Sprintf("arn:%v:redshift-serverless:%v:%v:workgroup/%v", partition, region, accountID, workgroupID),
+		},
+	})
+	return policyDoc, placeholders, nil
+}
+
+// getElastiCachePolicyDocument returns the policy document used for
+// ElastiCache databases.
+//
+// https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazonelasticache.html
+func getElastiCachePolicyDocument(db types.Database) (*awslib.PolicyDocument, Placeholders, error) {
+	meta := db.GetAWS()
+	partition := awsutils.GetPartitionFromRegion(meta.Region)
+	region := meta.Region
+	accountID := meta.AccountID
+	replicationGroupID := meta.ElastiCache.ReplicationGroupID
+
+	placeholders := Placeholders(nil).
+		setPlaceholderIfEmpty(&region, "{region}").
+		setPlaceholderIfEmpty(&partition, "{partition}").
+		setPlaceholderIfEmpty(&accountID, "{account_id}").
+		setPlaceholderIfEmpty(&replicationGroupID, "{replication_group_id}")
+
+	policyDoc := awslib.NewPolicyDocument(&awslib.Statement{
+		Effect:  awslib.EffectAllow,
+		Actions: awslib.SliceOrString{"elasticache:Connect"},
+		Resources: awslib.SliceOrString{
+			fmt.Sprintf("arn:%v:elasticache:%v:%v:replicationgroup:%v", partition, region, accountID, replicationGroupID),
+			fmt.Sprintf("arn:%v:elasticache:%v:%v:user:*", partition, region, accountID),
 		},
 	})
 	return policyDoc, placeholders, nil

@@ -188,6 +188,7 @@ var (
 			"elasticache:ModifyUser",
 		},
 		requireSecretsManager: true,
+		boundary:              []string{"elasticache:Connect"},
 	}
 	// memoryDBActions contains IAM actions for services.AWSMatcherMemoryDB.
 	memoryDBActions = databaseActions{

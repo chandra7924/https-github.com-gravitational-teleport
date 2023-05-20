@@ -291,6 +291,7 @@ func TestAWSIAMDocuments(t *testing.T) {
 					"elasticache:DescribeCacheSubnetGroups",
 					"elasticache:DescribeUsers",
 					"elasticache:ModifyUser",
+					"elasticache:Connect",
 				}},
 				{
 					Effect: awslib.EffectAllow,
@@ -367,6 +368,7 @@ func TestAWSIAMDocuments(t *testing.T) {
 					"elasticache:DescribeCacheSubnetGroups",
 					"elasticache:DescribeUsers",
 					"elasticache:ModifyUser",
+					"elasticache:Connect",
 				}},
 				{
 					Effect: "Allow",

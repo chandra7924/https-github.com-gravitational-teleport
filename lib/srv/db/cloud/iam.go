@@ -159,7 +159,10 @@ func (c *IAM) Teardown(ctx context.Context, database types.Database) error {
 // isSetupRequiredForDatabase returns true if database type is supported.
 func (c *IAM) isSetupRequiredForDatabase(database types.Database) bool {
 	switch database.GetType() {
-	case types.DatabaseTypeRDS, types.DatabaseTypeRDSProxy, types.DatabaseTypeRedshift:
+	case types.DatabaseTypeRDS,
+		types.DatabaseTypeRDSProxy,
+		types.DatabaseTypeRedshift,
+		types.DatabaseTypeElastiCache:
 		return true
 
 	default:
