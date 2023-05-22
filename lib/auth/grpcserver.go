@@ -25,6 +25,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/coreos/go-semver/semver"
 	"github.com/google/uuid"
 	"github.com/gravitational/trace"
 	"github.com/gravitational/trace/trail"
@@ -48,6 +49,7 @@ import (
 	integrationpb "github.com/gravitational/teleport/api/gen/proto/go/teleport/integration/v1"
 	oktapb "github.com/gravitational/teleport/api/gen/proto/go/teleport/okta/v1"
 	trustpb "github.com/gravitational/teleport/api/gen/proto/go/teleport/trust/v1"
+	"github.com/gravitational/teleport/api/metadata"
 	"github.com/gravitational/teleport/api/types"
 	apievents "github.com/gravitational/teleport/api/types/events"
 	"github.com/gravitational/teleport/api/types/installers"
@@ -377,6 +379,14 @@ func (g *GRPCServer) WatchEvents(watch *proto.Watch, stream proto.AuthService_Wa
 		case <-watcher.Done():
 			return watcher.Error()
 		case event := <-watcher.Events():
+			switch r := event.Resource.(type) {
+			case *types.RoleV6:
+				downgraded, err := maybeDowngradeRole(stream.Context(), r)
+				if err != nil {
+					return trace.Wrap(err)
+				}
+				event.Resource = downgraded
+			}
 			out, err := client.EventToGRPC(event)
 			if err != nil {
 				return trace.Wrap(err)
@@ -1915,22 +1925,59 @@ func (g *GRPCServer) DeleteAllKubernetesServers(ctx context.Context, req *proto.
 	return &emptypb.Empty{}, nil
 }
 
+var MinSupportedRoleV7Version = semver.New(utils.VersionBeforeAlpha("14.0.0"))
+
+// maybeDowngradeRole tests the client version passed through the GRPC metadata, and
+// if the client version is unknown or less than the minimum supported version
+// for V7 roles returns a shallow copy of the given role downgraded to V6, If
+// the passed in role is already V6, it is returned unmodified.
+func maybeDowngradeRole(ctx context.Context, role *types.RoleV6) (*types.RoleV6, error) {
+	if role.Version != types.V7 {
+		// role is already <V7, no need to downgrade
+		return role, nil
+	}
+
+	var clientVersion *semver.Version
+	clientVersionString, ok := metadata.ClientVersionFromContext(ctx)
+	if ok {
+		var err error
+		clientVersion, err = semver.NewVersion(clientVersionString)
+		if err != nil {
+			return nil, trace.BadParameter("unrecognized client version: %s is not a valid semver", clientVersionString)
+		}
+	}
+
+	if clientVersion == nil || clientVersion.LessThan(*MinSupportedRoleV7Version) {
+		log.Debugf(`Client version "%s" is unknown or less than 14.0.0, converting role to v6`, clientVersionString)
+		downgraded, err := services.DowngradeRoleToV6(role)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		return downgraded, nil
+	}
+	return role, nil
+}
+
 // GetRole retrieves a role by name.
 func (g *GRPCServer) GetRole(ctx context.Context, req *proto.GetRoleRequest) (*types.RoleV6, error) {
 	auth, err := g.authenticate(ctx)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	role, err := auth.ServerWithRoles.GetRole(ctx, req.Name)
+	roleI, err := auth.ServerWithRoles.GetRole(ctx, req.Name)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	roleV6, ok := role.(*types.RoleV6)
+	role, ok := roleI.(*types.RoleV6)
 	if !ok {
 		return nil, trace.Errorf("encountered unexpected role type: %T", role)
 	}
 
-	return roleV6, nil
+	downgraded, err := maybeDowngradeRole(ctx, role)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return downgraded, nil
 }
 
 // GetRoles retrieves all roles.
@@ -1939,20 +1986,24 @@ func (g *GRPCServer) GetRoles(ctx context.Context, _ *emptypb.Empty) (*proto.Get
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	roles, err := auth.ServerWithRoles.GetRoles(ctx)
+	rolesI, err := auth.ServerWithRoles.GetRoles(ctx)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	var rolesV6 []*types.RoleV6
-	for _, r := range roles {
+	var roles []*types.RoleV6
+	for _, r := range rolesI {
 		role, ok := r.(*types.RoleV6)
 		if !ok {
 			return nil, trace.BadParameter("unexpected type %T", r)
 		}
-		rolesV6 = append(rolesV6, role)
+		downgraded, err := maybeDowngradeRole(ctx, role)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		roles = append(roles, downgraded)
 	}
 	return &proto.GetRolesResponse{
-		Roles: rolesV6,
+		Roles: roles,
 	}, nil
 }
 

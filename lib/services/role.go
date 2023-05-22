@@ -3273,6 +3273,8 @@ func UnmarshalRole(bytes []byte, opts ...MarshalOption) (types.Role, error) {
 	}
 
 	switch h.Version {
+	case types.V7:
+		fallthrough
 	case types.V6:
 		fallthrough
 	case types.V5:
@@ -3326,4 +3328,49 @@ func MarshalRole(role types.Role, opts ...MarshalOption) ([]byte, error) {
 	default:
 		return nil, trace.BadParameter("unrecognized role version %T", role)
 	}
+}
+
+// DowngradeToV6 converts a V7 role to V6 so that it will be compatible with
+// older instances. Makes a shallow copy if the conversion is necessary. The
+// passed in role will not be mutated.
+// DELETE IN 15.0.0
+func DowngradeRoleToV6(r *types.RoleV6) (*types.RoleV6, error) {
+	switch r.Version {
+	case types.V3, types.V4, types.V5, types.V6:
+		return r, nil
+	case types.V7:
+		var downgraded types.RoleV6
+		downgraded = *r
+		downgraded.Version = types.V6
+		// V6 does not support the wildcard resource type, so downgrade it to
+		// KindKubePod and exclude all other unsuported resources.
+		downgraded.Spec.Allow.KubernetesResources = downgradeKubeResources(r.Spec.Allow.KubernetesResources)
+		downgraded.Spec.Deny.KubernetesResources = downgradeKubeResources(r.Spec.Deny.KubernetesResources)
+		return &downgraded, nil
+	default:
+		return nil, trace.BadParameter("unrecognized role version %T", r.Version)
+	}
+}
+
+// downgradeKubeResources converts a list of resources supported by V7 to a list
+// of resources supported by V6. This is necessary because V6 does not support
+// the wildcard resource type nor resources other than KindKubePod.
+// DELETE IN 15.0.0
+func downgradeKubeResources(original []types.KubernetesResource) []types.KubernetesResource {
+	var downgraded []types.KubernetesResource
+	for _, resource := range original {
+		if resource.Kind == types.KindKubePod || resource.Kind == types.Wildcard {
+			downgraded = append(
+				downgraded,
+				types.KubernetesResource{
+					// V6 does not support the wildcard resource type, so downgrade it to
+					// KindKubePod.
+					Kind:      types.KindKubePod,
+					Namespace: resource.Namespace,
+					Name:      resource.Name,
+				},
+			)
+		}
+	}
+	return downgraded
 }

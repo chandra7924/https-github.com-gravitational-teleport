@@ -45,7 +45,8 @@ func (bootstrap *Bootstrap) AddUserWithRoles(name string, roles ...string) (type
 }
 
 func (bootstrap *Bootstrap) AddRole(name string, spec types.RoleSpecV6) (types.Role, error) {
-	role, err := types.NewRole(name, spec)
+	// TODO: Remove this once Test Integration is updated to build tctl.
+	role, err := types.NewRoleWithVersion(name, types.V6, spec)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

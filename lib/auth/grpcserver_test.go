@@ -53,6 +53,7 @@ import (
 	"github.com/gravitational/teleport/api/client/proto"
 	"github.com/gravitational/teleport/api/constants"
 	apidefaults "github.com/gravitational/teleport/api/defaults"
+	"github.com/gravitational/teleport/api/metadata"
 	"github.com/gravitational/teleport/api/observability/tracing"
 	"github.com/gravitational/teleport/api/types"
 	"github.com/gravitational/teleport/api/types/installers"
@@ -4078,6 +4079,153 @@ func TestGRPCServer_GetInstallers(t *testing.T) {
 			}
 
 			require.Equal(t, tc.expectedInstallers, outputInstallers)
+		})
+	}
+}
+
+// TestRoleVersions tests that downgraded V7 roles are returned to older
+// clients, and V7 roles are returned to newer clients.
+func TestRoleVersions(t *testing.T) {
+	srv := newTestTLSServer(t)
+
+	role := &types.RoleV6{
+		Kind:    types.KindRole,
+		Version: types.V7,
+		Metadata: types.Metadata{
+			Name: "test_role",
+		},
+		Spec: types.RoleSpecV6{
+			Allow: types.RoleConditions{
+				KubernetesResources: []types.KubernetesResource{
+					{
+						Kind:      types.Wildcard,
+						Namespace: types.Wildcard,
+						Name:      types.Wildcard,
+					},
+				},
+				Rules: []types.Rule{
+					types.NewRule(types.KindRole, services.RO()),
+					types.NewRule(types.KindEvent, services.RW()),
+				},
+			},
+		},
+	}
+	user, err := CreateUser(srv.Auth(), "test_user", role)
+	require.NoError(t, err)
+
+	client, err := srv.NewClient(TestUser(user.GetName()))
+	require.NoError(t, err)
+
+	testCases := []struct {
+		desc                string
+		clientVersion       string
+		disableMetadata     bool
+		expectedRoleVersion string
+		assertErr           require.ErrorAssertionFunc
+		wantKubeResources   []types.KubernetesResource
+	}{
+		{
+			desc:                "alpha",
+			clientVersion:       "13.2.4-alpha.0",
+			expectedRoleVersion: types.V6,
+			assertErr:           require.NoError,
+			wantKubeResources: []types.KubernetesResource{
+				{
+					Kind:      types.KindKubePod,
+					Namespace: types.Wildcard,
+					Name:      types.Wildcard,
+				},
+			},
+		},
+		{
+			desc:                "greater than 14",
+			clientVersion:       "15.0.0-beta",
+			expectedRoleVersion: types.V7,
+			assertErr:           require.NoError,
+			wantKubeResources: []types.KubernetesResource{
+				{
+					Kind:      types.Wildcard,
+					Namespace: types.Wildcard,
+					Name:      types.Wildcard,
+				},
+			},
+		},
+		{
+			desc:                "14",
+			clientVersion:       "14.0.0",
+			expectedRoleVersion: types.V7,
+			assertErr:           require.NoError,
+			wantKubeResources: []types.KubernetesResource{
+				{
+					Kind:      types.Wildcard,
+					Namespace: types.Wildcard,
+					Name:      types.Wildcard,
+				},
+			},
+		},
+		{
+			desc:          "empty version",
+			clientVersion: "",
+			assertErr:     require.Error,
+		},
+		{
+			desc:          "invalid version",
+			clientVersion: "foo",
+			assertErr:     require.Error,
+		},
+		{
+			desc:                "no version metadata",
+			disableMetadata:     true,
+			expectedRoleVersion: types.V6,
+			assertErr:           require.NoError,
+			wantKubeResources: []types.KubernetesResource{
+				{
+					Kind:      types.KindKubePod,
+					Namespace: types.Wildcard,
+					Name:      types.Wildcard,
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			// setup client metadata
+			ctx := context.Background()
+			if tc.disableMetadata {
+				ctx = context.WithValue(ctx, metadata.DisableInterceptors{}, struct{}{})
+			} else {
+				ctx = metadata.AddMetadataToContext(ctx, map[string]string{
+					metadata.VersionKey: tc.clientVersion,
+				})
+			}
+
+			// test GetRole
+			gotRole, err := client.GetRole(ctx, role.GetName())
+			tc.assertErr(t, err)
+			if err == nil {
+				require.Equal(t, tc.expectedRoleVersion, gotRole.GetVersion())
+				roleV7, ok := gotRole.(*types.RoleV6)
+				require.True(t, ok)
+				require.Equal(t, tc.wantKubeResources, roleV7.Spec.Allow.KubernetesResources)
+			}
+
+			// test GetRoles
+			gotRoles, err := client.GetRoles(ctx)
+			tc.assertErr(t, err)
+			if err == nil {
+				foundTestRole := false
+				for _, gotRole := range gotRoles {
+					if gotRole.GetName() == role.GetName() {
+						require.Equal(t, tc.expectedRoleVersion, gotRole.GetVersion())
+						roleV7, ok := gotRole.(*types.RoleV6)
+						require.True(t, ok)
+						require.Equal(t, tc.wantKubeResources, roleV7.Spec.Allow.KubernetesResources)
+						foundTestRole = true
+					}
+				}
+				require.True(t, foundTestRole)
+			}
 		})
 	}
 }
