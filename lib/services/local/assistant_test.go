@@ -140,4 +140,22 @@ func TestAssistantCRUD(t *testing.T) {
 		require.Equal(t, conversationID, conversations.Conversations[0].Id)
 		require.Equal(t, conversationResp.Id, conversations.Conversations[1].Id)
 	})
+
+	t.Run("delete conversation", func(t *testing.T) {
+		req := &assist.DeleteAssistantConversationRequest{
+			Username:       username,
+			ConversationId: conversationID,
+		}
+		err := identity.DeleteAssistantConversation(ctx, req)
+		require.NoError(t, err)
+
+		reqConversations := &assist.GetAssistantConversationsRequest{
+			Username: username,
+		}
+
+		conversations, err := identity.GetAssistantConversations(ctx, reqConversations)
+		require.NoError(t, err)
+		require.Len(t, conversations.Conversations, 1)
+		require.NotEqual(t, conversationID, conversations.Conversations[0].Id, "conversation was not deleted")
+	})
 }
