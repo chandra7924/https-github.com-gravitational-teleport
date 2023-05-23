@@ -667,7 +667,6 @@ func (r *RoleImpl) GetHostGroups(rct RoleConditionType) []string {
 		return r.Spec.Allow.HostGroups
 	}
 	return r.Spec.Deny.HostGroups
-
 }
 
 // SetHostGroups sets all groups for provisioned user
@@ -686,7 +685,6 @@ func (r *RoleImpl) GetHostSudoers(rct RoleConditionType) []string {
 		return r.Spec.Allow.HostSudoers
 	}
 	return r.Spec.Deny.HostSudoers
-
 }
 
 // GetHostSudoers sets the list of sudoers entries for the role
@@ -1334,3 +1332,6 @@ func (r *RoleImpl) SetPreviewAsRoles(rct RoleConditionType, roles []string) {
 	}
 	roleConditions.ReviewRequests.PreviewAsRoles = roles
 }
+
+// TODO(espadolini): remove after updating teleport.e
+type RoleV5 = RoleImpl
