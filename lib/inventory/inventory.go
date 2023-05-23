@@ -69,7 +69,7 @@ type DownstreamHandle interface {
 	// Close closes the downstream handle.
 	Close() error
 	// GetUpstreamLabels gets the labels received from upstream.
-	GetUpstreamLabels() map[string]string
+	GetUpstreamLabels(kind proto.LabelUpdateKind) map[string]string
 }
 
 // DownstreamSender is a send-only reference to the downstream half of an inventory control stream. Components that
@@ -117,13 +117,13 @@ func SendHeartbeat(ctx context.Context, handle DownstreamHandle, hb proto.Invent
 }
 
 type downstreamHandle struct {
-	mu             sync.Mutex
-	handlerNonce   uint64
-	pingHandlers   map[uint64]DownstreamPingHandler
-	senderC        chan DownstreamSender
-	closeContext   context.Context
-	cancel         context.CancelFunc
-	upstreamLabels map[string]string
+	mu                sync.Mutex
+	handlerNonce      uint64
+	pingHandlers      map[uint64]DownstreamPingHandler
+	senderC           chan DownstreamSender
+	closeContext      context.Context
+	cancel            context.CancelFunc
+	upstreamSSHLabels map[string]string
 }
 
 func (h *downstreamHandle) closing() bool {
@@ -292,13 +292,18 @@ func (h *downstreamHandle) RegisterPingHandler(handler DownstreamPingHandler) (u
 func (h *downstreamHandle) handleUpdateLabels(sender DownstreamSender, msg proto.DownstreamInventoryUpdateLabels) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	h.upstreamLabels = msg.Labels
+	if msg.Kind == proto.LabelUpdateKind_SSHServer {
+		h.upstreamSSHLabels = msg.Labels
+	}
 }
 
-func (h *downstreamHandle) GetUpstreamLabels() map[string]string {
+func (h *downstreamHandle) GetUpstreamLabels(kind proto.LabelUpdateKind) map[string]string {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	return h.upstreamLabels
+	if kind == proto.LabelUpdateKind_SSHServer {
+		return h.upstreamSSHLabels
+	}
+	return nil
 }
 
 func (h *downstreamHandle) Sender() <-chan DownstreamSender {
@@ -350,7 +355,7 @@ type UpstreamHandle interface {
 	// pre-heartbeat state.
 	HeartbeatInstance()
 	// UpdateLabels updates the labels on the instance.
-	UpdateLabels(ctx context.Context, labels map[string]string) error
+	UpdateLabels(ctx context.Context, kind proto.LabelUpdateKind, labels map[string]string) error
 }
 
 // instanceStateTracker tracks the state of a connected instance from the point of view of
@@ -589,8 +594,9 @@ func (h *upstreamHandle) HasService(service types.SystemRole) bool {
 	return false
 }
 
-func (h *upstreamHandle) UpdateLabels(ctx context.Context, labels map[string]string) error {
+func (h *upstreamHandle) UpdateLabels(ctx context.Context, kind proto.LabelUpdateKind, labels map[string]string) error {
 	req := proto.DownstreamInventoryUpdateLabels{
+		Kind:   kind,
 		Labels: labels,
 	}
 	return trace.Wrap(h.Send(ctx, req))

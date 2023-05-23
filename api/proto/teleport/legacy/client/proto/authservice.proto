@@ -2135,20 +2135,30 @@ message DownstreamInventoryHello {
   string ServerID = 2;
 }
 
+// LabelUpdateKind is the type of service to update labels for.
+enum LabelUpdateKind {
+  // SSHServer is an SSH server.
+  SSHServer = 0;
+}
+
 // InventoryUpdateLabelsRequest is used to request that a specified instance
 // update its labels.
 message InventoryUpdateLabelsRequest {
   // ServerID advertises the server ID of the instance.
   string ServerID = 1;
+  // Kind is the type of service to update labels for.
+  LabelUpdateKind Kind = 2;
   // Labels is the new set of labels for the instance.
-  map<string, string> Labels = 2;
+  map<string, string> Labels = 3;
 }
 
 // DownstreamInventoryUpdateLabels is the message sent down the inventory
 // control stream to update the instance's labels.
 message DownstreamInventoryUpdateLabels {
+  // Kind is the type of service to update labels for.
+  LabelUpdateKind Kind = 1;
   // Labels is the new set of labels for the instance.
-  map<string, string> Labels = 1;
+  map<string, string> Labels = 2;
 }
 
 // InventoryHeartbeat announces information about instance state.

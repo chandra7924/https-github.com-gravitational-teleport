@@ -1126,15 +1126,6 @@ func (a *ServerWithRoles) PingInventory(ctx context.Context, req proto.Inventory
 	return a.authServer.PingInventory(ctx, req)
 }
 
-func (a *ServerWithRoles) UpdateLabels(ctx context.Context, req proto.InventoryUpdateLabelsRequest) error {
-	// admin-only for now, but we'll eventually want to develop an RBAC syntax for
-	// the inventory APIs once they are more developed.
-	if !a.hasBuiltinRole(types.RoleAdmin) {
-		return trace.AccessDenied("requires builtin admin role")
-	}
-	return trace.Wrap(a.authServer.UpdateLabels(ctx, req))
-}
-
 func (a *ServerWithRoles) GetInstances(ctx context.Context, filter types.InstanceFilter) stream.Stream[types.Instance] {
 	if err := a.action(apidefaults.Namespace, types.KindInstance, types.VerbList, types.VerbRead); err != nil {
 		return stream.Fail[types.Instance](trace.Wrap(err))

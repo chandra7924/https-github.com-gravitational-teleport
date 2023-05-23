@@ -3576,7 +3576,7 @@ func (a *Server) UpdateLabels(ctx context.Context, req proto.InventoryUpdateLabe
 	if !ok {
 		return trace.NotFound("no control stream found for server %q", req.ServerID)
 	}
-	return trace.Wrap(stream.UpdateLabels(ctx, req.Labels))
+	return trace.Wrap(stream.UpdateLabels(ctx, req.Kind, req.Labels))
 }
 
 // TokenExpiredOrNotFound is a special message returned by the auth server when provisioning
