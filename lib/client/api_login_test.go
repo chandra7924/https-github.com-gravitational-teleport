@@ -422,7 +422,7 @@ func newStandaloneTeleport(t *testing.T, clock clockwork.Clock) *standaloneBundl
 
 	user, err := types.NewUser("llama")
 	require.NoError(t, err)
-	role, err := types.NewRoleV3(user.GetName(), types.RoleSpecV5{
+	role, err := types.NewRoleV3(user.GetName(), types.RoleImplSpec{
 		Allow: types.RoleConditions{
 			Logins: []string{user.GetName()},
 		},

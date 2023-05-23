@@ -106,11 +106,11 @@ func testGetClusterReturnsPropertiesFromAuthServer(t *testing.T, pack *dbhelpers
 	userName := fmt.Sprintf("%s-%s", "user", uuid)
 	roleName := fmt.Sprintf("%s-%s", "get-cluster-role", uuid)
 
-	requestableRole, err := types.NewRole(requestableRoleName, types.RoleSpecV5{})
+	requestableRole, err := types.NewRole(requestableRoleName, types.RoleImplSpec{})
 	require.NoError(t, err)
 
 	// Create user role with ability to request role
-	userRole, err := types.NewRole(roleName, types.RoleSpecV5{
+	userRole, err := types.NewRole(roleName, types.RoleImplSpec{
 		Options: types.RoleOptions{},
 		Allow: types.RoleConditions{
 			Logins: []string{

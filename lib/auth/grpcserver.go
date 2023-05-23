@@ -376,7 +376,7 @@ func (g *GRPCServer) WatchEvents(watch *proto.Watch, stream proto.AuthService_Wa
 			return watcher.Error()
 		case event := <-watcher.Events():
 			switch r := event.Resource.(type) {
-			case *types.RoleV5:
+			case *types.RoleImpl:
 				downgraded, err := downgradeRole(stream.Context(), r)
 				if err != nil {
 					return trace.Wrap(err)
@@ -736,7 +736,7 @@ func (g *GRPCServer) GetCurrentUserRoles(_ *emptypb.Empty, stream proto.AuthServ
 		return trace.Wrap(err)
 	}
 	for _, role := range roles {
-		v5, ok := role.(*types.RoleV5)
+		v5, ok := role.(*types.RoleImpl)
 		if !ok {
 			log.Warnf("expected type RoleV5, got %T for role %q", role, role.GetName())
 			return trace.Errorf("encountered unexpected role type")
@@ -1905,7 +1905,7 @@ func (g *GRPCServer) DeleteAllKubernetesServers(ctx context.Context, req *proto.
 // if the client version is unknown or less than the minimum supported version
 // for V5 roles returns a shallow copy of the given role downgraded to V4, If
 // the passed in role is already V4, it is returned unmodified.
-func downgradeRole(ctx context.Context, role *types.RoleV5) (*types.RoleV5, error) {
+func downgradeRole(ctx context.Context, role *types.RoleImpl) (*types.RoleImpl, error) {
 	if role.Version == types.V4 {
 		// role is already V4, no need to downgrade
 		return role, nil
@@ -1933,7 +1933,7 @@ func downgradeRole(ctx context.Context, role *types.RoleV5) (*types.RoleV5, erro
 }
 
 // GetRole retrieves a role by name.
-func (g *GRPCServer) GetRole(ctx context.Context, req *proto.GetRoleRequest) (*types.RoleV5, error) {
+func (g *GRPCServer) GetRole(ctx context.Context, req *proto.GetRoleRequest) (*types.RoleImpl, error) {
 	auth, err := g.authenticate(ctx)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -1942,7 +1942,7 @@ func (g *GRPCServer) GetRole(ctx context.Context, req *proto.GetRoleRequest) (*t
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	roleV5, ok := role.(*types.RoleV5)
+	roleV5, ok := role.(*types.RoleImpl)
 	if !ok {
 		return nil, trace.Errorf("encountered unexpected role type")
 	}
@@ -1963,9 +1963,9 @@ func (g *GRPCServer) GetRoles(ctx context.Context, _ *emptypb.Empty) (*proto.Get
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	var rolesV5 []*types.RoleV5
+	var rolesV5 []*types.RoleImpl
 	for _, r := range roles {
-		role, ok := r.(*types.RoleV5)
+		role, ok := r.(*types.RoleImpl)
 		if !ok {
 			return nil, trace.BadParameter("unexpected type %T", r)
 		}
@@ -1981,7 +1981,7 @@ func (g *GRPCServer) GetRoles(ctx context.Context, _ *emptypb.Empty) (*proto.Get
 }
 
 // UpsertRole upserts a role.
-func (g *GRPCServer) UpsertRole(ctx context.Context, role *types.RoleV5) (*emptypb.Empty, error) {
+func (g *GRPCServer) UpsertRole(ctx context.Context, role *types.RoleImpl) (*emptypb.Empty, error) {
 	auth, err := g.authenticate(ctx)
 	if err != nil {
 		return nil, trace.Wrap(err)

@@ -276,7 +276,7 @@ func TestHandleDatabaseServicesGet(t *testing.T) {
 
 	ctx := context.Background()
 	user := "user"
-	roleRODatabaseServices, err := types.NewRole(services.RoleNameForUser(user), types.RoleSpecV5{
+	roleRODatabaseServices, err := types.NewRole(services.RoleNameForUser(user), types.RoleImplSpec{
 		Allow: types.RoleConditions{
 			DatabaseServiceLabels: types.Labels{types.Wildcard: []string{types.Wildcard}},
 			Rules: []types.Rule{

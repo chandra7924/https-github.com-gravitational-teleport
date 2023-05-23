@@ -226,7 +226,7 @@ spec:
     ssh_file_copy: true
 version: v3
 `
-	role, err := types.NewRoleV3("roleName", types.RoleSpecV5{
+	role, err := types.NewRoleV3("roleName", types.RoleImplSpec{
 		Allow: types.RoleConditions{
 			Logins: []string{"test"},
 		},
@@ -271,7 +271,7 @@ func TestGetRoles(t *testing.T) {
 	m := &mockedResourceAPIGetter{}
 
 	m.mockGetRoles = func(ctx context.Context) ([]types.Role, error) {
-		role, err := types.NewRoleV3("test", types.RoleSpecV5{
+		role, err := types.NewRoleV3("test", types.RoleImplSpec{
 			Allow: types.RoleConditions{
 				Logins: []string{"test"},
 			},

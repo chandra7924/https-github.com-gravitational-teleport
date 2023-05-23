@@ -305,7 +305,7 @@ func TestALPNSNIProxyKube(t *testing.T) {
 	kubeConfigPath := mustCreateKubeConfigFile(t, k8ClientConfig(kubeAPIMockSvr.URL, localK8SNI))
 
 	username := helpers.MustGetCurrentUser(t).Username
-	kubeRoleSpec := types.RoleSpecV5{
+	kubeRoleSpec := types.RoleImplSpec{
 		Allow: types.RoleConditions{
 			Logins:     []string{username},
 			KubeGroups: []string{kube.TestImpersonationGroup},
@@ -357,7 +357,7 @@ func TestALPNSNIProxyKubeV2Leaf(t *testing.T) {
 	kubeConfigPath := mustCreateKubeConfigFile(t, k8ClientConfig(kubeAPIMockSvr.URL, localK8SNI))
 
 	username := helpers.MustGetCurrentUser(t).Username
-	kubeRoleSpec := types.RoleSpecV5{
+	kubeRoleSpec := types.RoleImplSpec{
 		Allow: types.RoleConditions{
 			Logins:     []string{username},
 			KubeGroups: []string{kube.TestImpersonationGroup},

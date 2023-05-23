@@ -1407,13 +1407,13 @@ func TestIsMFARequiredUnauthorized(t *testing.T) {
 func TestRoleVersions(t *testing.T) {
 	srv := newTestTLSServer(t)
 
-	role := &types.RoleV5{
+	role := &types.RoleImpl{
 		Kind:    types.KindRole,
 		Version: types.V5,
 		Metadata: types.Metadata{
 			Name: "test_role",
 		},
-		Spec: types.RoleSpecV5{
+		Spec: types.RoleImplSpec{
 			Allow: types.RoleConditions{
 				Rules: []types.Rule{
 					types.NewRule(types.KindRole, services.RO()),
@@ -2946,7 +2946,7 @@ func TestSAMLValidation(t *testing.T) {
 				require.NoError(t, err)
 			}))
 
-			role, err := CreateRole(ctx, server.Auth(), "test_role", types.RoleSpecV5{Allow: tc.allow})
+			role, err := CreateRole(ctx, server.Auth(), "test_role", types.RoleImplSpec{Allow: tc.allow})
 			require.NoError(t, err)
 			user, err := CreateUser(server.Auth(), "test_user", role)
 			require.NoError(t, err)

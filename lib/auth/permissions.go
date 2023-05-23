@@ -341,7 +341,7 @@ func (a *authorizer) authorizeRemoteBuiltinRole(r RemoteBuiltinRole) (*Context, 
 	}
 	roleSet, err := services.RoleSetFromSpec(
 		string(types.RoleRemoteProxy),
-		types.RoleSpecV5{
+		types.RoleImplSpec{
 			Allow: types.RoleConditions{
 				Namespaces:       []string{types.Wildcard},
 				NodeLabels:       types.Labels{types.Wildcard: []string{types.Wildcard}},
@@ -403,14 +403,14 @@ func (a *authorizer) authorizeRemoteBuiltinRole(r RemoteBuiltinRole) (*Context, 
 	}, nil
 }
 
-func roleSpecForProxyWithRecordAtProxy(clusterName string) types.RoleSpecV5 {
+func roleSpecForProxyWithRecordAtProxy(clusterName string) types.RoleImplSpec {
 	base := roleSpecForProxy(clusterName)
 	base.Allow.Rules = append(base.Allow.Rules, types.NewRule(types.KindHostCert, services.RW()))
 	return base
 }
 
-func roleSpecForProxy(clusterName string) types.RoleSpecV5 {
-	return types.RoleSpecV5{
+func roleSpecForProxy(clusterName string) types.RoleImplSpec {
+	return types.RoleImplSpec{
 		Allow: types.RoleConditions{
 			Namespaces:            []string{types.Wildcard},
 			ClusterLabels:         types.Labels{types.Wildcard: []string{types.Wildcard}},
@@ -501,7 +501,7 @@ func definitionForBuiltinRole(clusterName string, recConfig types.SessionRecordi
 	case types.RoleAuth:
 		return services.RoleFromSpec(
 			role.String(),
-			types.RoleSpecV5{
+			types.RoleImplSpec{
 				Allow: types.RoleConditions{
 					Namespaces: []string{types.Wildcard},
 					Rules: []types.Rule{
@@ -510,11 +510,11 @@ func definitionForBuiltinRole(clusterName string, recConfig types.SessionRecordi
 				},
 			})
 	case types.RoleProvisionToken:
-		return services.RoleFromSpec(role.String(), types.RoleSpecV5{})
+		return services.RoleFromSpec(role.String(), types.RoleImplSpec{})
 	case types.RoleNode:
 		return services.RoleFromSpec(
 			role.String(),
-			types.RoleSpecV5{
+			types.RoleImplSpec{
 				Allow: types.RoleConditions{
 					Namespaces: []string{types.Wildcard},
 					NodeLabels: types.Labels{types.Wildcard: []string{types.Wildcard}},
@@ -546,7 +546,7 @@ func definitionForBuiltinRole(clusterName string, recConfig types.SessionRecordi
 	case types.RoleApp:
 		return services.RoleFromSpec(
 			role.String(),
-			types.RoleSpecV5{
+			types.RoleImplSpec{
 				Allow: types.RoleConditions{
 					Namespaces: []string{types.Wildcard},
 					AppLabels:  types.Labels{types.Wildcard: []string{types.Wildcard}},
@@ -577,7 +577,7 @@ func definitionForBuiltinRole(clusterName string, recConfig types.SessionRecordi
 	case types.RoleDatabase:
 		return services.RoleFromSpec(
 			role.String(),
-			types.RoleSpecV5{
+			types.RoleImplSpec{
 				Allow: types.RoleConditions{
 					Namespaces:     []string{types.Wildcard},
 					DatabaseLabels: types.Labels{types.Wildcard: []string{types.Wildcard}},
@@ -621,7 +621,7 @@ func definitionForBuiltinRole(clusterName string, recConfig types.SessionRecordi
 	case types.RoleSignup:
 		return services.RoleFromSpec(
 			role.String(),
-			types.RoleSpecV5{
+			types.RoleImplSpec{
 				Allow: types.RoleConditions{
 					Namespaces: []string{types.Wildcard},
 					Rules: []types.Rule{
@@ -633,7 +633,7 @@ func definitionForBuiltinRole(clusterName string, recConfig types.SessionRecordi
 	case types.RoleAdmin:
 		return services.RoleFromSpec(
 			role.String(),
-			types.RoleSpecV5{
+			types.RoleImplSpec{
 				Options: types.RoleOptions{
 					MaxSessionTTL: types.MaxDuration(),
 				},
@@ -655,7 +655,7 @@ func definitionForBuiltinRole(clusterName string, recConfig types.SessionRecordi
 	case types.RoleNop:
 		return services.RoleFromSpec(
 			role.String(),
-			types.RoleSpecV5{
+			types.RoleImplSpec{
 				Allow: types.RoleConditions{
 					Namespaces: []string{},
 					Rules:      []types.Rule{},
@@ -664,7 +664,7 @@ func definitionForBuiltinRole(clusterName string, recConfig types.SessionRecordi
 	case types.RoleKube:
 		return services.RoleFromSpec(
 			role.String(),
-			types.RoleSpecV5{
+			types.RoleImplSpec{
 				Allow: types.RoleConditions{
 					Namespaces:       []string{types.Wildcard},
 					KubernetesLabels: types.Labels{types.Wildcard: []string{types.Wildcard}},
@@ -690,7 +690,7 @@ func definitionForBuiltinRole(clusterName string, recConfig types.SessionRecordi
 	case types.RoleWindowsDesktop:
 		return services.RoleFromSpec(
 			role.String(),
-			types.RoleSpecV5{
+			types.RoleImplSpec{
 				Allow: types.RoleConditions{
 					Namespaces:           []string{types.Wildcard},
 					WindowsDesktopLabels: types.Labels{types.Wildcard: []string{types.Wildcard}},
@@ -714,7 +714,7 @@ func definitionForBuiltinRole(clusterName string, recConfig types.SessionRecordi
 	case types.RoleDiscovery:
 		return services.RoleFromSpec(
 			role.String(),
-			types.RoleSpecV5{
+			types.RoleImplSpec{
 				Allow: types.RoleConditions{
 					Namespaces: []string{types.Wildcard},
 					Rules: []types.Rule{

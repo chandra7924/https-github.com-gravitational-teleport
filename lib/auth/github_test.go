@@ -310,11 +310,11 @@ func TestCalculateGithubUserWithLoginRules(t *testing.T) {
 
 	// Create a test role so that FetchRoles can succeed.
 	roles := map[string]types.Role{
-		"access": &types.RoleV5{
+		"access": &types.RoleImpl{
 			Metadata: types.Metadata{
 				Name: "access",
 			},
-			Spec: types.RoleSpecV5{
+			Spec: types.RoleImplSpec{
 				Allow: types.RoleConditions{
 					Logins: []string{"{{internal.logins}}"},
 				},

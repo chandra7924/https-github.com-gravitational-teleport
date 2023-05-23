@@ -79,7 +79,7 @@ func TestRoleCreationFromYAML(t *testing.T) {
 		name         string
 		roleSpecYAML string
 		shouldFail   bool
-		expectedSpec *types.RoleSpecV5
+		expectedSpec *types.RoleImplSpec
 	}{
 		{
 			name: "Valid login list",
@@ -90,7 +90,7 @@ allow:
   - root
 `,
 			shouldFail: false,
-			expectedSpec: &types.RoleSpecV5{
+			expectedSpec: &types.RoleImplSpec{
 				Allow: types.RoleConditions{
 					Logins: []string{"ubuntu", "root"},
 				},
@@ -104,7 +104,7 @@ allow:
     '*': ['*']
 `,
 			shouldFail: false,
-			expectedSpec: &types.RoleSpecV5{
+			expectedSpec: &types.RoleImplSpec{
 				Allow: types.RoleConditions{
 					NodeLabels: map[string]apiutils.Strings{
 						"*": {"*"},
@@ -120,7 +120,7 @@ allow:
     '*': '*'
 `,
 			shouldFail: false,
-			expectedSpec: &types.RoleSpecV5{
+			expectedSpec: &types.RoleImplSpec{
 				Allow: types.RoleConditions{
 					NodeLabels: map[string]apiutils.Strings{
 						"*": {"*"},
@@ -392,7 +392,7 @@ func TestAddTeleportResourceOriginRole(t *testing.T) {
 	}{
 		{
 			name: "origin already set correctly",
-			resource: &types.RoleV5{
+			resource: &types.RoleImpl{
 				Metadata: types.Metadata{
 					Name:   "user with correct origin",
 					Labels: map[string]string{types.OriginLabel: types.OriginKubernetes},
@@ -401,7 +401,7 @@ func TestAddTeleportResourceOriginRole(t *testing.T) {
 		},
 		{
 			name: "origin already set incorrectly",
-			resource: &types.RoleV5{
+			resource: &types.RoleImpl{
 				Metadata: types.Metadata{
 					Name:   "user with correct origin",
 					Labels: map[string]string{types.OriginLabel: types.OriginConfigFile},
@@ -410,7 +410,7 @@ func TestAddTeleportResourceOriginRole(t *testing.T) {
 		},
 		{
 			name: "origin not set",
-			resource: &types.RoleV5{
+			resource: &types.RoleImpl{
 				Metadata: types.Metadata{
 					Name:   "user with correct origin",
 					Labels: map[string]string{"foo": "bar"},
@@ -419,7 +419,7 @@ func TestAddTeleportResourceOriginRole(t *testing.T) {
 		},
 		{
 			name: "no labels",
-			resource: &types.RoleV5{
+			resource: &types.RoleImpl{
 				Metadata: types.Metadata{
 					Name: "user with no labels",
 				},
