@@ -27,6 +27,8 @@ lint:
     - teleport/legacy/types/types.proto
     - teleport/legacy/types/wrappers/wrappers.proto
   ignore_only:
+    RPC_NO_SERVER_STREAMING:
+      - teleport/auditlog/v1/auditlog.proto
     # Allow package/directory mismatch for legacy protos.
     FIELD_LOWER_SNAKE_CASE:
       - teleport/legacy/types/device.proto

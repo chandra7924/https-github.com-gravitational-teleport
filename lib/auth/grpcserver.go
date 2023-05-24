@@ -18,7 +18,9 @@ package auth
 
 import (
 	"context"
+	"crypto/sha256"
 	"crypto/tls"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -39,12 +41,15 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/gravitational/teleport"
 	"github.com/gravitational/teleport/api/client"
 	"github.com/gravitational/teleport/api/client/proto"
 	"github.com/gravitational/teleport/api/constants"
 	"github.com/gravitational/teleport/api/gen/proto/go/assist/v1"
+	auditlogpb "github.com/gravitational/teleport/api/gen/proto/go/teleport/auditlog/v1"
 	integrationpb "github.com/gravitational/teleport/api/gen/proto/go/teleport/integration/v1"
 	oktapb "github.com/gravitational/teleport/api/gen/proto/go/teleport/okta/v1"
 	trustpb "github.com/gravitational/teleport/api/gen/proto/go/teleport/trust/v1"
@@ -103,6 +108,7 @@ var (
 
 // GRPCServer is GPRC Auth Server API
 type GRPCServer struct {
+	auditlogpb.UnimplementedAuditLogServiceServer
 	*logrus.Entry
 	APIConfig
 	server *grpc.Server
@@ -5046,6 +5052,7 @@ func NewGRPCServer(cfg GRPCServerConfig) (*GRPCServer, error) {
 
 	proto.RegisterAuthServiceServer(server, authServer)
 	collectortracepb.RegisterTraceServiceServer(server, authServer)
+	auditlogpb.RegisterAuditLogServiceServer(server, authServer)
 
 	trust, err := trustv1.NewService(&trustv1.ServiceConfig{
 		Authorizer: cfg.Authorizer,
@@ -5143,4 +5150,120 @@ func (g *GRPCServer) authenticate(ctx context.Context) (*grpcContext, error) {
 			alog:       g.AuthServer,
 		},
 	}, nil
+}
+
+// GetUnstructuredEvents searches for events on the backend and sends them back in an unstructured format.
+func (g *GRPCServer) GetUnstructuredEvents(ctx context.Context, req *auditlogpb.GetUnstructuredEventsRequest) (*auditlogpb.EventsUnstructured, error) {
+	auth, err := g.authenticate(ctx)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	rawEvents, lastkey, err := auth.ServerWithRoles.SearchEvents(ctx, events.SearchEventsRequest{
+		From:       req.StartDate.AsTime(),
+		To:         req.EndDate.AsTime(),
+		EventTypes: req.EventTypes,
+		Limit:      int(req.Limit),
+		Order:      types.EventOrder(req.Order),
+		StartKey:   req.StartKey,
+	})
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	unstructuredEvents := make([]*auditlogpb.EventUnstructured, 0, len(rawEvents))
+	for _, event := range rawEvents {
+		unstructuredEvent, err := protoEventToUnstructured(event)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+		unstructuredEvents = append(unstructuredEvents, unstructuredEvent)
+	}
+
+	return &auditlogpb.EventsUnstructured{
+		Items:   unstructuredEvents,
+		LastKey: lastkey,
+	}, nil
+}
+
+// StreamUnstructuredSessionEventsServer streams all events from a given session recording as an unstructured format. An error is returned on the first
+// channel if one is encountered. Otherwise the event channel is closed when the stream ends.
+// The event channel is not closed on error to prevent race conditions in downstream select statements.
+func (g *GRPCServer) StreamUnstructuredSessionEventsServer(req *auditlogpb.StreamUnstructuredSessionEventsRequest, stream auditlogpb.AuditLogService_StreamUnstructuredSessionEventsServer) error {
+	auth, err := g.authenticate(stream.Context())
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	c, e := auth.ServerWithRoles.StreamSessionEvents(stream.Context(), session.ID(req.SessionId), int64(req.StartIndex))
+
+	for {
+		select {
+		case event, more := <-c:
+			if !more {
+				return nil
+			}
+			// convert event to JSON
+			eventJson, err := protoEventToUnstructured(event)
+			if err != nil {
+				return trail.ToGRPC(trace.Wrap(err))
+			}
+			if err := stream.Send(eventJson); err != nil {
+				return trail.ToGRPC(trace.Wrap(err))
+			}
+		case err := <-e:
+			return trail.ToGRPC(trace.Wrap(err))
+		}
+	}
+}
+
+// protoEventToUnstructured converts the event stored in the apievents.AuditEvent interface
+// to unstructured.
+// If the event is a session print event, it is converted to a printEvent struct
+// which is then converted to structpb.Struct. Otherwise the event is marshaled directly.
+func protoEventToUnstructured(evt apievents.AuditEvent) (*auditlogpb.EventUnstructured, error) {
+	payload, err := utils.FastMarshal(evt)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	id := computeEventID(evt, payload)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	str := &structpb.Struct{}
+	if str.UnmarshalJSON(payload); err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	// If the event is a session print event, convert it to a printEvent struct
+	// to include the `data` field in the JSON.
+	if p, ok := evt.(*apievents.SessionPrint); ok && evt.GetType() == events.SessionPrintEvent {
+		const printEventDataKey = "data"
+		// append the `data` field to the unstructured event
+		str.Fields[printEventDataKey], err = structpb.NewValue(p.Data)
+		if err != nil {
+			return nil, trace.Wrap(err)
+		}
+	}
+
+	return &auditlogpb.EventUnstructured{
+		Type:         evt.GetType(),
+		Index:        evt.GetIndex(),
+		Time:         timestamppb.New(evt.GetTime()),
+		Id:           id,
+		Unstructured: str,
+	}, nil
+}
+
+// computeEventID computes the ID of the event. If the event already has an ID, it is returned.
+// Otherwise, the event is marshaled to JSON and the SHA256 hash of the JSON is returned.
+func computeEventID(evt apievents.AuditEvent, payload []byte) string {
+	id := evt.GetID()
+	if id != "" {
+		return id
+	}
+
+	hash := sha256.Sum256(payload)
+	return hex.EncodeToString(hash[:])
 }

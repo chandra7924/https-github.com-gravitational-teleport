@@ -40,6 +40,7 @@ import (
 	ggzip "google.golang.org/grpc/encoding/gzip"
 	"google.golang.org/grpc/keepalive"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/gravitational/teleport/api/breaker"
 	"github.com/gravitational/teleport/api/client/okta"
@@ -47,6 +48,7 @@ import (
 	"github.com/gravitational/teleport/api/constants"
 	"github.com/gravitational/teleport/api/defaults"
 	"github.com/gravitational/teleport/api/gen/proto/go/assist/v1"
+	auditlogpb "github.com/gravitational/teleport/api/gen/proto/go/teleport/auditlog/v1"
 	devicepb "github.com/gravitational/teleport/api/gen/proto/go/teleport/devicetrust/v1"
 	integrationpb "github.com/gravitational/teleport/api/gen/proto/go/teleport/integration/v1"
 	kubeproto "github.com/gravitational/teleport/api/gen/proto/go/teleport/kube/v1"
@@ -75,6 +77,7 @@ func init() {
 type AuthServiceClient struct {
 	proto.AuthServiceClient
 	assist.AssistServiceClient
+	auditlogpb.AuditLogServiceClient
 }
 
 // Client is a gRPC Client that connects to a Teleport Auth server either
@@ -466,8 +469,9 @@ func (c *Client) dialGRPC(ctx context.Context, addr string) error {
 
 	c.conn = conn
 	c.grpc = AuthServiceClient{
-		AuthServiceClient:   proto.NewAuthServiceClient(c.conn),
-		AssistServiceClient: assist.NewAssistServiceClient(c.conn),
+		AuthServiceClient:     proto.NewAuthServiceClient(c.conn),
+		AssistServiceClient:   assist.NewAssistServiceClient(c.conn),
+		AuditLogServiceClient: auditlogpb.NewAuditLogServiceClient(c.conn),
 	}
 	c.JoinServiceClient = NewJoinServiceClient(proto.NewJoinServiceClient(c.conn))
 
@@ -2079,6 +2083,73 @@ func (c *Client) SearchEvents(ctx context.Context, fromUTC, toUTC time.Time, nam
 	}
 
 	return decodedEvents, response.LastKey, nil
+}
+
+// SearchUnstructuredEvents allows searching for events with a full pagination support
+// and returns events in an unstructured format (json like).
+// This method is used by the Teleport event-handler plugin to receive events
+// from the auth server wihout having to support the Protobuf event schema.
+func (c *Client) SearchUnstructuredEvents(ctx context.Context, fromUTC, toUTC time.Time, namespace string, eventTypes []string, limit int, order types.EventOrder, startKey string) ([]*auditlogpb.EventUnstructured, string, error) {
+	request := &auditlogpb.GetUnstructuredEventsRequest{
+		Namespace:  namespace,
+		StartDate:  timestamppb.New(fromUTC),
+		EndDate:    timestamppb.New(toUTC),
+		EventTypes: eventTypes,
+		Limit:      int32(limit),
+		StartKey:   startKey,
+		Order:      auditlogpb.Order(order),
+	}
+
+	response, err := c.grpc.GetUnstructuredEvents(ctx, request)
+	if err != nil {
+		return nil, "", trail.FromGRPC(err)
+	}
+
+	return response.Items, response.LastKey, nil
+}
+
+// StreamUnstructuredSessionEvents streams audit events from a given session recording in an unstructured format.
+// This method is used by the Teleport event-handler plugin to receive events
+// from the auth server wihout having to support the Protobuf event schema.
+func (c *Client) StreamUnstructuredSessionEvents(ctx context.Context, sessionID string, startIndex int64) (chan *auditlogpb.EventUnstructured, chan error) {
+	request := &auditlogpb.StreamUnstructuredSessionEventsRequest{
+		SessionId:  sessionID,
+		StartIndex: int32(startIndex),
+	}
+
+	ch := make(chan *auditlogpb.EventUnstructured)
+	e := make(chan error, 1)
+
+	stream, err := c.grpc.StreamUnstructuredSessionEvents(ctx, request)
+	if err != nil {
+		e <- trace.Wrap(err)
+		return ch, e
+	}
+
+	go func() {
+	outer:
+		for {
+			event, err := stream.Recv()
+			if err != nil {
+				if err != io.EOF {
+					e <- trace.Wrap(trail.FromGRPC(err))
+				} else {
+					close(ch)
+				}
+
+				break outer
+			}
+
+			select {
+			case ch <- event:
+			case <-ctx.Done():
+				e <- trace.Wrap(ctx.Err())
+				break outer
+			}
+		}
+	}()
+
+	return ch, e
 }
 
 // SearchSessionEvents allows searching for session events with a full pagination support.
