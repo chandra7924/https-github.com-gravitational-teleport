@@ -887,6 +887,7 @@ message SnowflakeJWTRequest {
 // SnowflakeJWTResponse contains signed JWT that can be used for Snowflake authentication.
 message SnowflakeJWTResponse {
   string Token = 1 [(gogoproto.jsontag) = "token"];
+  string foo = 2;
 }
 
 // GetRoleRequest is a request to query a role.
