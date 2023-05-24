@@ -40,36 +40,37 @@ const (
 //
 // Both hijacked conn and request context are updated. The hijacked conn can be
 // used for ALPN connection upgrades or Websocket connections.
-func (h *Handler) maybeUpdateClientSrcAddr(w http.ResponseWriter, r *http.Request) (http.ResponseWriter, *http.Request) {
+func (h *Handler) maybeUpdateClientSrcAddr(w http.ResponseWriter, r *http.Request) (http.ResponseWriter, *http.Request, error) {
 	if !h.cfg.UseXFFHeader {
-		return w, r
-	}
-	// Use X-Forwarded-for if set.
-	xForwardedFor := r.Header.Get(xForwardedForHeader)
-	if xForwardedFor == "" {
-		return w, r
+		return w, r, nil
 	}
 
-	forwardedAddr, err := getForwardedAddr(r.RemoteAddr, xForwardedFor)
+	forwardedAddr := strings.TrimSpace(strings.Join(r.Header.Values(xForwardedForHeader), ","))
+	if forwardedAddr == "" {
+		return w, r, nil
+	}
+
+	clientSrcAddr, err := parseForwardedAddr(r.RemoteAddr, forwardedAddr)
 	if err != nil {
-		logrus.Debugf("Invalid X-Forwarded-For %q: %v.", xForwardedFor, err)
-		return w, r
+		return nil, nil, trace.Wrap(err)
 	}
 
-	return responseWriterWithClientSrcAddr(w, forwardedAddr),
-		requestWithClientSrcAddr(r, forwardedAddr)
+	return responseWriterWithClientSrcAddr(w, clientSrcAddr),
+		requestWithClientSrcAddr(r, clientSrcAddr), nil
 }
 
-// getForwardedAddr returns a net.Addr from provided value of X-Forwarded-For.
+// parseForwardedAddr returns a net.Addr from provided value of X-Forwarded-For.
 //
 // MDN reference:
 // https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Forwarded-For
 //
 // AWS ALB reference:
 // https://docs.aws.amazon.com/elasticloadbalancing/latest/application/x-forwarded-headers.html
-func getForwardedAddr(observeredAddr, forwardedAddr string) (net.Addr, error) {
-	// In case multiple IPs are appended to X-Forwarded-For, use the first one.
-	forwardedAddr, _, _ = strings.Cut(forwardedAddr, ",")
+func parseForwardedAddr(observeredAddr, forwardedAddr string) (net.Addr, error) {
+	// Reject multiple IPs
+	if _, _, multipleIPs := strings.Cut(forwardedAddr, ","); multipleIPs {
+		return nil, trace.BadParameter("expect a single IP from X-Forwarded-For but got %v", forwardedAddr)
+	}
 
 	// If forwardedAddr has a port.
 	if ipAddrPort, err := netip.ParseAddrPort(forwardedAddr); err == nil {

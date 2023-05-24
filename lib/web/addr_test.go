@@ -45,8 +45,12 @@ func TestMaybeUpdateClientSrvAddr(t *testing.T) {
 	req.RemoteAddr = observeredAddr.String()
 
 	// Setup other requests for testing.
-	reqWithXForwardedFor := req.Clone(req.Context())
-	reqWithXForwardedFor.Header.Set("X-Forwarded-For", xForwardedAddr.String())
+	reqWithXFF := req.Clone(req.Context())
+	reqWithXFF.Header.Set("X-Forwarded-For", xForwardedAddr.String())
+
+	reqWithMultipleXFF := req.Clone(req.Context())
+	reqWithMultipleXFF.Header.Add("X-Forwarded-For", xForwardedAddr.String())
+	reqWithMultipleXFF.Header.Add("X-Forwarded-For", "88.77.66.55:8765")
 
 	tests := []struct {
 		name              string
@@ -54,6 +58,7 @@ func TestMaybeUpdateClientSrvAddr(t *testing.T) {
 		inputRW           http.ResponseWriter
 		inputReq          *http.Request
 		wantRemoteAddr    string
+		wantError         bool
 	}{
 		{
 			name:           "UseXFFHeader not enabled",
@@ -69,9 +74,16 @@ func TestMaybeUpdateClientSrvAddr(t *testing.T) {
 			wantRemoteAddr:    observeredAddr.String(),
 		},
 		{
+			name:              "multiple X-Forwarded-For values",
+			inputRW:           rw,
+			inputReq:          reqWithMultipleXFF,
+			inputUseXFFHeader: true,
+			wantError:         true,
+		},
+		{
 			name:              "using X-Forwarded-For header",
 			inputRW:           rw,
-			inputReq:          reqWithXForwardedFor,
+			inputReq:          reqWithXFF,
 			inputUseXFFHeader: true,
 			wantRemoteAddr:    xForwardedAddr.String(),
 		},
@@ -84,7 +96,13 @@ func TestMaybeUpdateClientSrvAddr(t *testing.T) {
 					UseXFFHeader: test.inputUseXFFHeader,
 				},
 			}
-			outputRW, outputReq := h.maybeUpdateClientSrcAddr(test.inputRW, test.inputReq)
+
+			outputRW, outputReq, err := h.maybeUpdateClientSrcAddr(test.inputRW, test.inputReq)
+			if test.wantError {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
 
 			// Verify hijacked conn.
 			hj, ok := outputRW.(http.Hijacker)
@@ -104,7 +122,7 @@ func TestMaybeUpdateClientSrvAddr(t *testing.T) {
 
 }
 
-func TestGetForwardedAddr(t *testing.T) {
+func TestParseForwardedAddr(t *testing.T) {
 	t.Parallel()
 
 	inputObserveredAddr := "1.2.3.4:12345"
@@ -115,7 +133,7 @@ func TestGetForwardedAddr(t *testing.T) {
 		wantError          bool
 	}{
 		{
-			name:               "empty X-Forwarded-For",
+			name:               "empty",
 			inputForwardedAddr: "",
 			wantError:          true,
 		},
@@ -147,13 +165,13 @@ func TestGetForwardedAddr(t *testing.T) {
 		{
 			name:               "multiple",
 			inputForwardedAddr: "3.4.5.6, 7.8.9.10, 11.12.13.14",
-			wantAddr:           "3.4.5.6:12345",
+			wantError:          true,
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			actualAddr, err := getForwardedAddr(inputObserveredAddr, test.inputForwardedAddr)
+			actualAddr, err := parseForwardedAddr(inputObserveredAddr, test.inputForwardedAddr)
 			if test.wantError {
 				require.Error(t, err)
 			} else {
