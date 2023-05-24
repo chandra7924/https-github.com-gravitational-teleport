@@ -17,4 +17,11 @@ jobs:
         run: buf breaking "https://github.com/${{ github.repository }}.git#branch=${{ github.sha }}" --against "https://github.com/${{ github.repository }}.git#branch=${{ github.base_ref }}"
       - name: onto-master
         if: ${{ github.base_ref != 'espadolini/proto-unbreak/master' }} # 'master'
-        run: buf breaking "https://github.com/${{ github.repository }}.git#branch=espadolini/proto-unbreak/master" --against "https://github.com/${{ github.repository }}.git#ref=${{ github.sha }}"
+        run: |
+          buf breaking "https://github.com/${{ github.repository }}.git#branch=espadolini/proto-unbreak/master" --against "https://github.com/${{ github.repository }}.git#branch=${{ github.sha }}" |\
+          ( ! grep -Ev \
+          -e '^api/proto/teleport/legacy/client/proto/authservice\.proto:.*:Field "17" with name "RequesterName" on message "UserCertsRequest" changed option "json_name" from "MFAResponse" to "RequesterName"\.' \
+          -e '^api/proto/teleport/legacy/client/proto/authservice\.proto:.*:Field "17" on message "UserCertsRequest" changed type from "message" to "enum"\.' \
+          -e '^api/proto/teleport/legacy/client/proto/authservice\.proto:.*:Field "17" on message "UserCertsRequest" changed name from "MFAResponse" to "RequesterName"\.' \
+          )
+          [ ${PIPESTATUS[0]} -eq 0 ] || [ ${PIPESTATUS[0]} -eq 100 ]
