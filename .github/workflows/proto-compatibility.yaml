@@ -1,0 +1,20 @@
+on:
+  pull_request:
+    branches:
+      - "espadolini/proto-unbreak/master" # "master"
+      - "espadolini/proto-unbreak/v*" # "branch/*"
+    paths:
+      - "**.proto"
+      - "**/buf.yaml"
+      - "buf.work.yaml"
+
+jobs:
+  buf-breaking:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: bufbuild/buf-setup-action@v1
+      - name: from-base
+        run: buf breaking "https://github.com/${{ github.repository }}.git#branch=${{ github.sha }}" --against "https://github.com/${{ github.repository }}.git#branch=${{ github.base_ref }}"
+      - name: onto-master
+        if: ${{ github.base_ref != 'espadolini/proto-unbreak/master' }} # 'master'
+        run: buf breaking "https://github.com/${{ github.repository }}.git#branch=espadolini/proto-unbreak/master" --against "https://github.com/${{ github.repository }}.git#ref=${{ github.sha }}"
