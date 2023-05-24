@@ -24,7 +24,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/iam"
 	"github.com/aws/aws-sdk-go/service/iam/iamiface"
 	"github.com/aws/aws-sdk-go/service/rds"
-	"github.com/aws/aws-sdk-go/service/rds/rdsiface"
 	"github.com/gravitational/trace"
 	"github.com/sirupsen/logrus"
 
@@ -99,13 +98,8 @@ type dbIAMAuthConfigurator interface {
 // getDBConfigurator returns a database IAM Auth configurator.
 func getDBConfigurator(ctx context.Context, log logrus.FieldLogger, clients cloud.Clients, db types.Database) (dbIAMAuthConfigurator, error) {
 	if db.IsRDS() {
-		meta := db.GetAWS()
-		rds, err := clients.GetAWSRDSClient(ctx, meta.Region, cloud.WithAssumeRoleFromAWSMeta(meta))
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
 		// Only setting for RDS instances and Aurora clusters.
-		return &rdsDBConfigurator{rds: rds, log: log}, nil
+		return &rdsDBConfigurator{clients: clients, log: log}, nil
 	}
 	// IAM Auth for Redshift, ElastiCache, and RDS Proxy is always enabled.
 	return &nopDBConfigurator{}, nil
@@ -289,8 +283,8 @@ func (r *awsClient) detachIAMPolicy(ctx context.Context) error {
 }
 
 type rdsDBConfigurator struct {
-	rds rdsiface.RDSAPI
-	log logrus.FieldLogger
+	clients cloud.Clients
+	log     logrus.FieldLogger
 }
 
 // ensureIAMAuth enables RDS instance IAM auth if it isn't already enabled.
@@ -308,10 +302,13 @@ func (r *rdsDBConfigurator) ensureIAMAuth(ctx context.Context, db types.Database
 // enableIAMAuth turns on IAM auth setting on the RDS instance.
 func (r *rdsDBConfigurator) enableIAMAuth(ctx context.Context, db types.Database) error {
 	r.log.Debug("Enabling IAM auth for RDS.")
-	var err error
 	meta := db.GetAWS()
+	rdsClt, err := r.clients.GetAWSRDSClient(ctx, meta.Region, cloud.WithAssumeRoleFromAWSMeta(meta))
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	if meta.RDS.ClusterID != "" {
-		_, err = r.rds.ModifyDBClusterWithContext(ctx, &rds.ModifyDBClusterInput{
+		_, err = rdsClt.ModifyDBClusterWithContext(ctx, &rds.ModifyDBClusterInput{
 			DBClusterIdentifier:             aws.String(meta.RDS.ClusterID),
 			EnableIAMDatabaseAuthentication: aws.Bool(true),
 			ApplyImmediately:                aws.Bool(true),
@@ -319,7 +316,7 @@ func (r *rdsDBConfigurator) enableIAMAuth(ctx context.Context, db types.Database
 		return awslib.ConvertIAMError(err)
 	}
 	if meta.RDS.InstanceID != "" {
-		_, err = r.rds.ModifyDBInstanceWithContext(ctx, &rds.ModifyDBInstanceInput{
+		_, err = rdsClt.ModifyDBInstanceWithContext(ctx, &rds.ModifyDBInstanceInput{
 			DBInstanceIdentifier:            aws.String(meta.RDS.InstanceID),
 			EnableIAMDatabaseAuthentication: aws.Bool(true),
 			ApplyImmediately:                aws.Bool(true),
