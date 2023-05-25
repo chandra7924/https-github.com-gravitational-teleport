@@ -1,0 +1,29 @@
+{
+  "packages": [
+    "go@1.20.3",
+    "nodejs@16.18.1",
+    "git@2.40.1",
+    "gcc@12.2.0",
+    "libiconvReal@1.16",
+    "libfido2@1.13.0",
+    "gci@0.9.1",
+    "yamllint@1.28.0",
+    "addlicense@1.0.0",
+    "shellcheck@0.9.0",
+    "python@3.11.2",
+    "yarn@1.22.19",
+    "kubernetes-helm@3.11.1",
+    "protobuf3_20@3.20.3",
+    "protoc-gen-go@1.28.1",
+    "patchelf@0.15.0",
+    "path:build.assets/flake#rust",
+    "path:build.assets/flake#protoc-gen-gogo",
+    "path:build.assets/flake#helm",
+    "path:build.assets/flake#golangci-lint"
+  ],
+  "shell": {
+  },
+  "nixpkgs": {
+    "commit": "f91ee3065de91a3531329a674a45ddcb3467a650"
+  }
+}
