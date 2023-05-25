@@ -7987,8 +7987,8 @@ func TestCheckAccessWithLabelExpressions(t *testing.T) {
 
 	matchLabels := types.Labels{"env": {"prod"}}
 	noMatchLabels := types.Labels{"env": {"staging"}}
-	matchExpression := `labels["env"] == "prod"`
-	noMatchExpression := `labels["env"] == "staging"`
+	matchExpression := `contains(user.spec.traits["allow-env"], labels["env"])`
+	noMatchExpression := `!contains(user.spec.traits["allow-env"], labels["env"])`
 	labelsForOption := func(o option) types.Labels {
 		switch o {
 		case match:
@@ -8039,6 +8039,9 @@ func TestCheckAccessWithLabelExpressions(t *testing.T) {
 					rs := NewRoleSet(role)
 					accessInfo := &AccessInfo{
 						Roles: []string{role.GetName()},
+						Traits: wrappers.Traits{
+							"allow-env": {"prod"},
+						},
 					}
 					accessChecker := NewAccessCheckerWithRoleSet(accessInfo, "testcluster", rs)
 					err := accessChecker.CheckAccess(resource, AccessState{})
@@ -8060,6 +8063,9 @@ func TestCheckAccessWithLabelExpressions(t *testing.T) {
 				rs := NewRoleSet(role)
 				accessInfo := &AccessInfo{
 					Roles: []string{role.GetName()},
+					Traits: wrappers.Traits{
+						"allow-env": {"prod"},
+					},
 				}
 				accessChecker := NewAccessCheckerWithRoleSet(accessInfo, "testcluster", rs)
 				err := accessChecker.CheckAccessToRemoteCluster(remoteCluster)

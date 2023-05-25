@@ -233,6 +233,10 @@ type ProfileStatus struct {
 	// files on disk - must be accompanied by fallback logic when those paths
 	// do not exist.
 	IsVirtual bool
+
+	// AccessInfo holds access information for the logged in profile like role
+	// names, traits, and allowed resources from resource access requests
+	AccessInfo *services.AccessInfo
 }
 
 // profileOptions contains fields needed to initialize a profile beyond those
@@ -257,28 +261,12 @@ func profileStatusFromKey(key *Key, opts profileOptions) (*ProfileStatus, error)
 	// Extract from the certificate how much longer it will be valid for.
 	validUntil := time.Unix(int64(sshCert.ValidBefore), 0)
 
-	// Extract roles from certificate. Note, if the certificate is in old format,
-	// this will be empty.
-	var roles []string
-	rawRoles, ok := sshCert.Extensions[teleport.CertExtensionTeleportRoles]
-	if ok {
-		roles, err = services.UnmarshalCertRoles(rawRoles)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
+	accessInfo, err := services.AccessInfoFromLocalCertificate(sshCert)
+	if err != nil {
+		return nil, trace.Wrap(err)
 	}
-	sort.Strings(roles)
 
-	// Extract traits from the certificate. Note if the certificate is in the
-	// old format, this will be empty.
-	var traits wrappers.Traits
-	rawTraits, ok := sshCert.Extensions[teleport.CertExtensionTeleportTraits]
-	if ok {
-		err = wrappers.UnmarshalTraits([]byte(rawTraits), &traits)
-		if err != nil {
-			return nil, trace.Wrap(err)
-		}
-	}
+	sort.Strings(accessInfo.Roles)
 
 	var activeRequests services.RequestIDs
 	rawRequests, ok := sshCert.Extensions[teleport.CertExtensionTeleportActiveRequests]
@@ -286,12 +274,6 @@ func profileStatusFromKey(key *Key, opts profileOptions) (*ProfileStatus, error)
 		if err := activeRequests.Unmarshal([]byte(rawRequests)); err != nil {
 			return nil, trace.Wrap(err)
 		}
-	}
-
-	allowedResourcesStr := sshCert.Extensions[teleport.CertExtensionAllowedResources]
-	allowedResourceIDs, err := types.ResourceIDsFromString(allowedResourcesStr)
-	if err != nil {
-		return nil, trace.Wrap(err)
 	}
 
 	// Extract extensions from certificate. This lists the abilities of the
@@ -350,9 +332,9 @@ func profileStatusFromKey(key *Key, opts profileOptions) (*ProfileStatus, error)
 		ValidUntil:         validUntil,
 		Extensions:         extensions,
 		CriticalOptions:    sshCert.CriticalOptions,
-		Roles:              roles,
+		Roles:              accessInfo.Roles,
 		Cluster:            opts.SiteName,
-		Traits:             traits,
+		Traits:             accessInfo.Traits,
 		ActiveRequests:     activeRequests,
 		KubeEnabled:        opts.KubeProxyAddr != "",
 		KubeUsers:          tlsID.KubernetesUsers,
@@ -363,7 +345,8 @@ func profileStatusFromKey(key *Key, opts profileOptions) (*ProfileStatus, error)
 		AzureIdentities:    tlsID.AzureIdentities,
 		GCPServiceAccounts: tlsID.GCPServiceAccounts,
 		IsVirtual:          opts.IsVirtual,
-		AllowedResourceIDs: allowedResourceIDs,
+		AllowedResourceIDs: accessInfo.AllowedResourceIDs,
+		AccessInfo:         accessInfo,
 	}, nil
 }
 
