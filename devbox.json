@@ -1,7 +1,7 @@
 {
   "packages": [
     "bash@5.2-p15",
-    "go@1.20.3",
+    "github:nixos/nixpkgs/757a0d107c238d031652a8c09d1f6bf1b6f523a3#go",
     "nodejs@16.18.1",
     "git@2.40.1",
     "gcc@12.2.0",
