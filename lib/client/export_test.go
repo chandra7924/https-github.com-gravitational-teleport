@@ -14,6 +14,10 @@
 
 package client
 
+import (
+	dtauthn "github.com/gravitational/teleport/lib/devicetrust/authn"
+)
+
 var HasTouchIDCredentials = &hasTouchIDCredentials
 
 func (tc *TeleportClient) SetDTAttemptLoginIgnorePing(val bool) {
@@ -24,8 +28,8 @@ func (tc *TeleportClient) SetDTAutoEnrollIgnorePing(val bool) {
 	tc.dtAutoEnrollIgnorePing = val
 }
 
-func (tc *TeleportClient) SetDTAuthnRunCeremony(fn dtAuthnRunCeremonyFunc) {
-	tc.dtAuthnRunCeremony = fn
+func (tc *TeleportClient) SetDTAuthnCeremony(c dtauthn.CeremonyI) {
+	tc.dtAuthnCeremony = c
 }
 
 func (tc *TeleportClient) SetDTAutoEnroll(fn dtAutoEnrollFunc) {

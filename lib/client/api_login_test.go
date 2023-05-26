@@ -459,11 +459,8 @@ func TestTeleportClient_DeviceLogin(t *testing.T) {
 	t.Run("device login", func(t *testing.T) {
 		// We need this because the running standalone process is not Enterprise.
 		teleportClient.SetDTAttemptLoginIgnorePing(true)
-
-		// validatingRunCeremony checks the parameters passed to dtAuthnRunCeremony
-		// and returns validCerts on success.
 		var runCeremonyCalls int
-		validatingRunCeremony := func(_ context.Context, devicesClient devicepb.DeviceTrustServiceClient, certs *devicepb.UserCertificates) (*devicepb.UserCertificates, error) {
+		validatingRunCeremony := func(ctx context.Context, devicesClient devicepb.DeviceTrustServiceClient, certs *devicepb.UserCertificates) (*devicepb.UserCertificates, error) {
 			runCeremonyCalls++
 			switch {
 			case devicesClient == nil:
@@ -475,7 +472,7 @@ func TestTeleportClient_DeviceLogin(t *testing.T) {
 			}
 			return validCerts, nil
 		}
-		teleportClient.SetDTAuthnRunCeremony(validatingRunCeremony)
+		teleportClient.SetDTAuthnCeremony(mockCeremony(validatingRunCeremony))
 
 		// Sanity check that we can do authenticated actions before
 		// AttemptDeviceLogin.
@@ -507,10 +504,11 @@ func TestTeleportClient_DeviceLogin(t *testing.T) {
 	t.Run("attempt login respects ping", func(t *testing.T) {
 		runCeremonyCalled := false
 		teleportClient.SetDTAttemptLoginIgnorePing(false)
-		teleportClient.SetDTAuthnRunCeremony(func(_ context.Context, _ devicepb.DeviceTrustServiceClient, _ *devicepb.UserCertificates) (*devicepb.UserCertificates, error) {
+		mockCeremony := mockCeremony(func(_ context.Context, _ devicepb.DeviceTrustServiceClient, _ *devicepb.UserCertificates) (*devicepb.UserCertificates, error) {
 			runCeremonyCalled = true
 			return nil, errors.New("dtAuthnRunCeremony called unexpectedly")
 		})
+		teleportClient.SetDTAuthnCeremony(mockCeremony)
 
 		// Sanity check the Ping response.
 		resp, err := teleportClient.Ping(ctx)
@@ -535,13 +533,14 @@ func TestTeleportClient_DeviceLogin(t *testing.T) {
 		var enrolled bool
 		var runCeremonyCalls, autoEnrollCalls int
 		teleportClient.SetDTAutoEnrollIgnorePing(true)
-		teleportClient.SetDTAuthnRunCeremony(func(_ context.Context, _ devicepb.DeviceTrustServiceClient, _ *devicepb.UserCertificates) (*devicepb.UserCertificates, error) {
+		mockCeremony := mockCeremony(func(_ context.Context, _ devicepb.DeviceTrustServiceClient, _ *devicepb.UserCertificates) (*devicepb.UserCertificates, error) {
 			runCeremonyCalls++
 			if !enrolled {
 				return nil, errors.New("device not enrolled")
 			}
 			return validCerts, nil
 		})
+		teleportClient.SetDTAuthnCeremony(mockCeremony)
 		teleportClient.SetDTAutoEnroll(func(_ context.Context, _ devicepb.DeviceTrustServiceClient) (*devicepb.Device, error) {
 			autoEnrollCalls++
 			enrolled = true
@@ -559,6 +558,12 @@ func TestTeleportClient_DeviceLogin(t *testing.T) {
 		assert.Equal(t, 2, runCeremonyCalls, "RunCeremony called an unexpected number of times")
 		assert.Equal(t, 1, autoEnrollCalls, "AutoEnroll called an unexpected number of times")
 	})
+}
+
+type mockCeremony func(ctx context.Context, devicesClient devicepb.DeviceTrustServiceClient, certs *devicepb.UserCertificates) (*devicepb.UserCertificates, error)
+
+func (c mockCeremony) Run(ctx context.Context, devicesClient devicepb.DeviceTrustServiceClient, certs *devicepb.UserCertificates) (*devicepb.UserCertificates, error) {
+	return c(ctx, devicesClient, certs)
 }
 
 type standaloneBundle struct {

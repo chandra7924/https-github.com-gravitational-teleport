@@ -968,10 +968,10 @@ type TeleportClient struct {
 	// Useful to force flows that only typically happen on Teleport Enterprise.
 	dtAttemptLoginIgnorePing, dtAutoEnrollIgnorePing bool
 
-	// dtAuthnRunCeremony allows tests to override the default device
+	// dtAuthnCeremony allows tests to override the default device
 	// authentication function.
-	// Defaults to [dtauthn.RunCeremony].
-	dtAuthnRunCeremony dtAuthnRunCeremonyFunc
+	// Defaults to [dtauthn.NewCeremony].
+	dtAuthnCeremony dtauthn.CeremonyI
 
 	// dtAutoEnroll allows tests to override the default device auto-enroll
 	// function.
@@ -3177,7 +3177,7 @@ func (tc *TeleportClient) WithoutJumpHosts(fn func(tcNoJump *TeleportClient) err
 		lastPing:                 tc.lastPing,
 		dtAttemptLoginIgnorePing: tc.dtAttemptLoginIgnorePing,
 		dtAutoEnrollIgnorePing:   tc.dtAutoEnrollIgnorePing,
-		dtAuthnRunCeremony:       tc.dtAuthnRunCeremony,
+		dtAuthnCeremony:          tc.dtAuthnCeremony,
 		dtAutoEnroll:             tc.dtAutoEnroll,
 	}
 	tcNoJump.JumpHosts = nil
@@ -3398,14 +3398,14 @@ func (tc *TeleportClient) DeviceLogin(ctx context.Context, certs *devicepb.UserC
 	}
 
 	// Allow tests to override the default authn function.
-	runCeremony := tc.dtAuthnRunCeremony
-	if runCeremony == nil {
-		runCeremony = dtauthn.RunCeremony
+	ceremony := tc.dtAuthnCeremony
+	if ceremony == nil {
+		ceremony = dtauthn.NewCeremony()
 	}
 
 	// Login without a previous auto-enroll attempt.
 	devicesClient := authClient.DevicesClient()
-	newCerts, loginErr := runCeremony(ctx, devicesClient, certs)
+	newCerts, loginErr := ceremony.Run(ctx, devicesClient, certs)
 	// Success or auto-enroll impossible.
 	if loginErr == nil || errors.Is(loginErr, devicetrust.ErrPlatformNotSupported) || trace.IsNotImplemented(loginErr) {
 		return newCerts, trace.Wrap(loginErr)
@@ -3431,7 +3431,7 @@ func (tc *TeleportClient) DeviceLogin(ctx context.Context, certs *devicepb.UserC
 		log.WithError(err).Debug("Device Trust: device auto-enroll failed")
 		return nil, trace.Wrap(loginErr) // err swallowed for loginErr
 	}
-	newCerts, err = runCeremony(ctx, devicesClient, certs)
+	newCerts, err = ceremony.Run(ctx, devicesClient, certs)
 	return newCerts, trace.Wrap(err)
 }
 
