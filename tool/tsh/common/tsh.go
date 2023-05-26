@@ -69,6 +69,7 @@ import (
 	dbprofile "github.com/gravitational/teleport/lib/client/db"
 	"github.com/gravitational/teleport/lib/client/identityfile"
 	"github.com/gravitational/teleport/lib/defaults"
+	dtauthn "github.com/gravitational/teleport/lib/devicetrust/authn"
 	"github.com/gravitational/teleport/lib/events"
 	"github.com/gravitational/teleport/lib/kube/kubeconfig"
 	"github.com/gravitational/teleport/lib/modules"
@@ -450,6 +451,11 @@ type CLIConf struct {
 
 	// HeadlessAuthenticationID is the ID of a headless authentication.
 	HeadlessAuthenticationID string
+
+	// dtAuthnCeremony allows tests to override the default device
+	// authentication function.
+	// Defaults to [dtauthn.NewCeremony].
+	DTAuthnCeremony dtauthn.CeremonyI
 }
 
 // Stdout returns the stdout writer.
@@ -3532,9 +3538,10 @@ func makeClientForProxy(cf *CLIConf, proxy string) (*client.TeleportClient, erro
 
 	c.EnableEscapeSequences = cf.EnableEscapeSequences
 
-	// pass along mock sso login if provided (only used in tests)
+	// pass along mock functions if provided (only used in tests)
 	c.MockSSOLogin = cf.MockSSOLogin
 	c.MockHeadlessLogin = cf.MockHeadlessLogin
+	c.DTAuthnCeremony = cf.DTAuthnCeremony
 
 	// Set tsh home directory
 	c.HomePath = cf.HomePath

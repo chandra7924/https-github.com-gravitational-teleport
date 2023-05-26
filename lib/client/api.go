@@ -430,6 +430,21 @@ type Config struct {
 
 	// PROXYSigner is used to sign PROXY headers for securely propagating client IP address
 	PROXYSigner multiplexer.PROXYHeaderSigner
+
+	// dtAttemptLoginIgnorePing and dtAutoEnrollIgnorePing allow Device Trust
+	// tests to ignore Ping responses.
+	// Useful to force flows that only typically happen on Teleport Enterprise.
+	dtAttemptLoginIgnorePing, dtAutoEnrollIgnorePing bool
+
+	// DTAuthnCeremony allows tests to override the default device
+	// authentication function.
+	// Defaults to [dtauthn.NewCeremony].
+	DTAuthnCeremony dtauthn.CeremonyI
+
+	// dtAutoEnroll allows tests to override the default device auto-enroll
+	// function.
+	// Defaults to [dtenroll.AutoEnroll].
+	dtAutoEnroll dtAutoEnrollFunc
 }
 
 // CachePolicy defines cache policy for local clients
@@ -962,21 +977,6 @@ type TeleportClient struct {
 	// Note: there's no mutex guarding this or localAgent, making
 	// TeleportClient NOT safe for concurrent use.
 	lastPing *webclient.PingResponse
-
-	// dtAttemptLoginIgnorePing and dtAutoEnrollIgnorePing allow Device Trust
-	// tests to ignore Ping responses.
-	// Useful to force flows that only typically happen on Teleport Enterprise.
-	dtAttemptLoginIgnorePing, dtAutoEnrollIgnorePing bool
-
-	// dtAuthnCeremony allows tests to override the default device
-	// authentication function.
-	// Defaults to [dtauthn.NewCeremony].
-	dtAuthnCeremony dtauthn.CeremonyI
-
-	// dtAutoEnroll allows tests to override the default device auto-enroll
-	// function.
-	// Defaults to [dtenroll.AutoEnroll].
-	dtAutoEnroll dtAutoEnrollFunc
 }
 
 // ShellCreatedCallback can be supplied for every teleport client. It will
@@ -3170,15 +3170,11 @@ func (g *proxyClusterGuesser) authMethod(ctx context.Context) ssh.AuthMethod {
 // profile.
 func (tc *TeleportClient) WithoutJumpHosts(fn func(tcNoJump *TeleportClient) error) error {
 	tcNoJump := &TeleportClient{
-		Config:                   tc.Config,
-		localAgent:               tc.localAgent,
-		OnShellCreated:           tc.OnShellCreated,
-		eventsCh:                 make(chan events.EventFields, 1024),
-		lastPing:                 tc.lastPing,
-		dtAttemptLoginIgnorePing: tc.dtAttemptLoginIgnorePing,
-		dtAutoEnrollIgnorePing:   tc.dtAutoEnrollIgnorePing,
-		dtAuthnCeremony:          tc.dtAuthnCeremony,
-		dtAutoEnroll:             tc.dtAutoEnroll,
+		Config:         tc.Config,
+		localAgent:     tc.localAgent,
+		OnShellCreated: tc.OnShellCreated,
+		eventsCh:       make(chan events.EventFields, 1024),
+		lastPing:       tc.lastPing,
 	}
 	tcNoJump.JumpHosts = nil
 
@@ -3398,7 +3394,7 @@ func (tc *TeleportClient) DeviceLogin(ctx context.Context, certs *devicepb.UserC
 	}
 
 	// Allow tests to override the default authn function.
-	ceremony := tc.dtAuthnCeremony
+	ceremony := tc.DTAuthnCeremony
 	if ceremony == nil {
 		ceremony = dtauthn.NewCeremony()
 	}

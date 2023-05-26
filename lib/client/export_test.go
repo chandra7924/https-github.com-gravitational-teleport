@@ -29,7 +29,7 @@ func (tc *TeleportClient) SetDTAutoEnrollIgnorePing(val bool) {
 }
 
 func (tc *TeleportClient) SetDTAuthnCeremony(c dtauthn.CeremonyI) {
-	tc.dtAuthnCeremony = c
+	tc.DTAuthnCeremony = c
 }
 
 func (tc *TeleportClient) SetDTAutoEnroll(fn dtAutoEnrollFunc) {

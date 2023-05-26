@@ -14,7 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package mock
+// Package testing provides functions for creating test servers for testing.
+package testing
 
 import (
 	"context"
@@ -59,9 +60,9 @@ func init() {
 	}
 
 	var err error
-	ports, err = utils.GetFreeTCPPorts(5000, utils.PortStartingNumber)
+	ports, err = utils.GetFreeTCPPorts(100, utils.PortStartingNumber)
 	if err != nil {
-		panic(fmt.Sprintf("failed to allocate tcp ports for tests: %v", err))
+		panic(fmt.Sprintf("Failed to allocate tcp ports for tests: %v", err))
 	}
 
 	modules.SetModules(&cliModules{})
@@ -164,8 +165,8 @@ func waitForServices(t *testing.T, auth *service.TeleportProcess, cfg *servicecf
 
 func waitForEvents(t *testing.T, svc service.Supervisor, events ...string) {
 	for _, event := range events {
-		_, err := svc.WaitForEventTimeout(30*time.Second, event)
-		require.NoError(t, err, "service server didn't receive %v event after 30s", event)
+		_, err := svc.WaitForEventTimeout(10*time.Second, event)
+		require.NoError(t, err, "service server didn't receive %v event after 10s", event)
 	}
 }
 
@@ -193,7 +194,7 @@ func waitForDatabases(t *testing.T, auth *service.TeleportProcess, dbs []service
 				return
 			}
 		case <-ctx.Done():
-			t.Fatal("databases not registered after 10s")
+			t.Fatal("Databases not registered after 10s")
 		}
 	}
 }
@@ -257,14 +258,14 @@ func WithSSHLabel(key, value string) TestServerOptFunc {
 
 type cliModules struct{}
 
-// BuildType returns build type (OSS or Enterprise)
+// BuildType returns build type.
 func (p *cliModules) BuildType() string {
 	return "CLI"
 }
 
 // PrintVersion prints the Teleport version.
 func (p *cliModules) PrintVersion() {
-	fmt.Printf("Teleport CLI\n")
+	fmt.Println("Teleport CLI")
 }
 
 // Features returns supported features
