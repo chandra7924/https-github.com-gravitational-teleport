@@ -65,6 +65,8 @@
       "resolved": "github:NixOS/nixpkgs/8670e496ffd093b60e74e7fa53526aa5920d09eb#patchelf",
       "version": "0.15.0"
     },
+    "path:build.assets/flake": {},
+    "path:build.assets/flake#helm": {},
     "protobuf3_20@3.20.3": {
       "last_modified": "2023-05-01T16:53:22Z",
       "resolved": "github:NixOS/nixpkgs/8670e496ffd093b60e74e7fa53526aa5920d09eb#protobuf3_20",

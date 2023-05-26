@@ -43,6 +43,7 @@
       (system:
         let
           # These versions are not available from nixpkgs
+          golangciLintVersion = "v1.52.0";
           rustVersion = "1.68.0";
           gogoVersion = "v1.3.2";
           helmUnittestVersion = "v1.0.16";
@@ -53,14 +54,36 @@
           # The individual package names here have been determined by using
           # https://lazamar.co.uk/nix-versions/
 
-          # Wrap helm with the unittest plugin.
-          helm = (pkgs.wrapHelm helmPkgs.legacyPackages.${system}.kubernetes-helm {plugins = [helm-unittest];});
           libbpf = libbpfPkgs.legacyPackages.${system}.libbpf;
-          #go = goPkgs.legacyPackages.${system}.go_1_20;
 
           # pkgs is an alias for the nixpkgs at the system level. This will be used
           # for general utilities.
           pkgs = nixpkgs.legacyPackages.${system};
+
+          # The helm unittest plugin.
+          helm-unittest = pkgs.buildGoModule rec {
+            name = "helm-unittest";
+          
+            src = pkgs.fetchFromGitHub {
+              owner = "vbehar";
+              repo = "helm3-unittest";
+              rev = helmUnittestVersion;
+              sha256 = "sha256-2UfQimIlA+hb1CpQrWfMh5iBEvgdnrkCGYaTJC3Bzpo=";
+            };
+
+            vendorSha256 = null;
+          
+            postInstall = ''
+              install -Dm644 plugin.yaml $out/helm-unittest/plugin.yaml
+              mkdir "$out/helm-unittest/bin"
+              mv $out/bin/helm3-unittest $out/helm-unittest/bin/unittest
+            '';
+          
+            doCheck = false;
+          };
+
+          # Wrap helm with the unittest plugin.
+          helm = (pkgs.wrapHelm helmPkgs.legacyPackages.${system}.kubernetes-helm {plugins = [helm-unittest];});
 
           # Install golangci-lint
           golangci-lint = pkgs.stdenv.mkDerivation {
@@ -71,7 +94,7 @@
             ];
             dontUnpack = true;
             buildPhase = ''
-              curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $out/bin v1.52.0
+              curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $out/bin ${golangciLintVersion}
             '';
           };
 
@@ -101,7 +124,7 @@
             name = "grpc-tools";
             dontUnpack = true;
             buildInputs = [
-              pkgs.node
+              pkgs.nodejs-16_x
             ];
             buildPhase = ''
               export HOME="$(mktemp -d)"
@@ -128,29 +151,48 @@
               curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs | sh -s -- -y --no-modify-path --default-toolchain "${rustVersion}"
             '';
           };
+        in
+        {
+          packages = {
+            helm = helm;
+            golangci-lint = golangci-lint;
+            protoc-gen-gogo = protoc-gen-gogo;
+            grpc-tools = grpc-tools;
+            rust = rust;
 
-          # The helm unittest plugin.
-          helm-unittest = pkgs.buildGoModule rec {
-            name = "helm-unittest";
-          
-            src = pkgs.fetchFromGitHub {
-              owner = "vbehar";
-              repo = "helm3-unittest";
-              rev = helmUnittestVersion;
-              sha256 = "sha256-2UfQimIlA+hb1CpQrWfMh5iBEvgdnrkCGYaTJC3Bzpo=";
+            default = pkgs.stdenv.mkDerivation {
+              name = "all";
+              dontUnpack = true;
+              buildPhase = ''
+                mkdir "$out"
+              '';
+
+              propagatedBuildInputs = [
+                helm
+                golangci-lint
+                protoc-gen-gogo
+                grpc-tools
+                rust
+              ];
             };
 
-            vendorSha256 = null;
-          
-            postInstall = ''
-              install -Dm644 plugin.yaml $out/helm-unittest/plugin.yaml
-              mkdir "$out/helm-unittest/bin"
-              mv $out/bin/helm3-unittest $out/helm-unittest/bin/unittest
-            '';
-          
-            doCheck = false;
+            #default = pkgs.stdenv.mkDerivation {
+            #  name = "all";
+            #  dontUnpack = true;
+            #  buildInputs = [
+            #    helm
+            #    golangci-lint
+            #    protoc-gen-gogo
+            #    grpc-tools
+            #    rust
+            #  ];
+            #  buildPhase = ''
+            #    mkdir -p "$out"
+            #    for dir in */; do
+            #      cp -R * "$out"
+            #    done
+            #  '';
+            #};
           };
-        in {
-        }
-      );
+      });
 }
