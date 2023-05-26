@@ -21,6 +21,7 @@ import (
 
 	"github.com/gravitational/trace"
 
+	"github.com/gravitational/teleport/lib/teleterm/api/uri"
 	"github.com/gravitational/teleport/lib/teleterm/gateway"
 	"github.com/gravitational/teleport/lib/tlsca"
 )
@@ -42,6 +43,24 @@ type CreateGatewayParams struct {
 
 // CreateGateway creates a gateway
 func (c *Cluster) CreateGateway(ctx context.Context, params CreateGatewayParams) (*gateway.Gateway, error) {
+	targetURI := uri.New(params.TargetURI)
+	c.Log.Debugf("Create gateway for %v", targetURI)
+
+	switch {
+	case targetURI.GetDbName() != "":
+		gw, err := c.createDatabaseGateway(ctx, params)
+		return gw, trace.Wrap(err)
+
+	case targetURI.GetKubeName() != "":
+		gw, err := c.createKubeGateway(ctx, params, targetURI.GetKubeName())
+		return gw, trace.Wrap(err)
+
+	default:
+		return nil, trace.NotImplemented("gateway not supported for %v")
+	}
+}
+
+func (c *Cluster) createDatabaseGateway(ctx context.Context, params CreateGatewayParams) (*gateway.Gateway, error) {
 	db, err := c.GetDatabase(ctx, params.TargetURI)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -52,6 +71,7 @@ func (c *Cluster) CreateGateway(ctx context.Context, params CreateGatewayParams)
 		Protocol:    db.GetProtocol(),
 		Username:    params.TargetUser,
 	}
+	c.Name
 
 	if err := c.ReissueDBCerts(ctx, routeToDatabase); err != nil {
 		return nil, trace.Wrap(err)
@@ -67,6 +87,7 @@ func (c *Cluster) CreateGateway(ctx context.Context, params CreateGatewayParams)
 		KeyPath:                       c.status.KeyPath(),
 		CertPath:                      c.status.DatabaseCertPathForCluster(c.clusterClient.SiteName, db.GetName()),
 		Insecure:                      c.clusterClient.InsecureSkipVerify,
+		ClusterName:                   c.Name,
 		WebProxyAddr:                  c.clusterClient.WebProxyAddr,
 		Log:                           c.Log,
 		CLICommandProvider:            params.CLICommandProvider,
@@ -81,4 +102,28 @@ func (c *Cluster) CreateGateway(ctx context.Context, params CreateGatewayParams)
 	}
 
 	return gw, nil
+}
+
+func (c *Cluster) createKubeGateway(ctx context.Context, params CreateGatewayParams, kubeCluster string) (*gateway.Gateway, error) {
+	if err := c.ReissueKubeCerts(ctx, kubeCluster); err != nil {
+		return nil, trace.Wrap(err)
+	}
+
+	gw, err := gateway.New(gateway.Config{
+		LocalPort:                     params.LocalPort,
+		TargetURI:                     params.TargetURI,
+		TargetName:                    kubeCluster,
+		KeyPath:                       c.status.KeyPath(),
+		CertPath:                      c.status.KubeCertPath(kubeCluster),
+		Insecure:                      c.clusterClient.InsecureSkipVerify,
+		ClusterName:                   c.Name,
+		WebProxyAddr:                  c.clusterClient.WebProxyAddr,
+		Log:                           c.Log,
+		TCPPortAllocator:              params.TCPPortAllocator,
+		OnExpiredCert:                 params.OnExpiredCert,
+		Clock:                         c.clock,
+		TLSRoutingConnUpgradeRequired: c.clusterClient.TLSRoutingConnUpgradeRequired,
+		RootClusterCACertPoolFunc:     c.clusterClient.RootClusterCACertPool,
+	})
+	return gw, trace.Wrap(err)
 }

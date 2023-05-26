@@ -58,6 +58,8 @@ type Config struct {
 	KeyPath string
 	// Insecure
 	Insecure bool
+	// ClusterName
+	ClusterName string
 	// WebProxyAddr
 	WebProxyAddr string
 	// Log is a component logger
@@ -127,6 +129,10 @@ func (c *Config) CheckAndSetDefaults() error {
 		return trace.BadParameter("missing CLICommandProvider")
 	}
 
+	if c.OnExpiredCert == nil {
+		return trace.BadParameter("missing OnExpiredCert")
+	}
+
 	if c.TCPPortAllocator == nil {
 		c.TCPPortAllocator = NetTCPPortAllocator{}
 	}
@@ -143,6 +149,9 @@ func (c *Config) CheckAndSetDefaults() error {
 // The tlsca.RouteToDatabase.Database field is skipped, as it's an optional field and gateways can
 // change their Config.TargetSubresourceName at any moment.
 func (c *Config) RouteToDatabase() tlsca.RouteToDatabase {
+	if !uri.IsDB(c.TargetURI) {
+		return tlsca.RouteToDatabase{}
+	}
 	return tlsca.RouteToDatabase{
 		ServiceName: c.TargetName,
 		Protocol:    c.Protocol,
