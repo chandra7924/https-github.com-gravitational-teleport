@@ -2046,7 +2046,7 @@ func TestGenerateHostCertWithLocks(t *testing.T) {
 
 	// Locks targeting nodes should not apply to other system roles.
 	_, err = p.a.GenerateHostCert(ctx, pub, hostID, "test-proxy", []string{}, p.clusterName.GetClusterName(), types.RoleProxy, time.Minute)
-	require.NoError(t, err)
+	require.Error(t, err)
 }
 
 func TestNewWebSession(t *testing.T) {

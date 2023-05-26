@@ -44,33 +44,39 @@ const clusterName = "test-cluster"
 
 func TestContextLockTargets(t *testing.T) {
 	t.Parallel()
-	authContext := &Context{
-		Identity: BuiltinRole{
-			Role:        types.RoleNode,
-			ClusterName: "cluster",
-			Identity: tlsca.Identity{
-				Username: "node.cluster",
-				Groups:   []string{"role1", "role2"},
-				DeviceExtensions: tlsca.DeviceExtensions{
-					DeviceID: "device1",
-				},
-			},
-		},
-		UnmappedIdentity: WrapIdentity(tlsca.Identity{
-			Username: "node.cluster",
-			Groups:   []string{"mapped-role"},
-		}),
+	for _, role := range types.LocalServiceMappings() {
+		t.Run(
+			role.String(),
+			func(t *testing.T) {
+				authContext := &Context{
+					Identity: BuiltinRole{
+						Role:        role,
+						ClusterName: "cluster",
+						Identity: tlsca.Identity{
+							Username: "node.cluster",
+							Groups:   []string{"role1", "role2"},
+							DeviceExtensions: tlsca.DeviceExtensions{
+								DeviceID: "device1",
+							},
+						},
+					},
+					UnmappedIdentity: WrapIdentity(tlsca.Identity{
+						Username: "node.cluster",
+						Groups:   []string{"mapped-role"},
+					}),
+				}
+				expected := []types.LockTarget{
+					{Node: "node"},
+					{Node: "node.cluster"},
+					{User: "node.cluster"},
+					{Role: "role1"},
+					{Role: "role2"},
+					{Role: "mapped-role"},
+					{Device: "device1"},
+				}
+				require.ElementsMatch(t, authContext.LockTargets(), expected)
+			})
 	}
-	expected := []types.LockTarget{
-		{Node: "node"},
-		{Node: "node.cluster"},
-		{User: "node.cluster"},
-		{Role: "role1"},
-		{Role: "role2"},
-		{Role: "mapped-role"},
-		{Device: "device1"},
-	}
-	require.ElementsMatch(t, authContext.LockTargets(), expected)
 }
 
 func TestAuthorizeWithLocksForLocalUser(t *testing.T) {
@@ -141,29 +147,32 @@ func TestAuthorizeWithLocksForBuiltinRole(t *testing.T) {
 	ctx := context.Background()
 
 	client, watcher, authorizer := newTestResources(t)
+	for _, role := range types.LocalServiceMappings() {
+		t.Run(role.String(), func(t *testing.T) {
+			builtinRole := BuiltinRole{
+				Username: "node",
+				Role:     role,
+				Identity: tlsca.Identity{
+					Username: "node",
+				},
+			}
 
-	builtinRole := BuiltinRole{
-		Username: "node",
-		Role:     types.RoleNode,
-		Identity: tlsca.Identity{
-			Username: "node",
-		},
+			// Apply a node lock.
+			nodeLock, err := types.NewLock("node-lock", types.LockSpecV2{
+				Target: types.LockTarget{Node: builtinRole.Identity.Username},
+			})
+			require.NoError(t, err)
+			upsertLockWithPutEvent(ctx, t, client, watcher, nodeLock)
+
+			_, err = authorizer.Authorize(context.WithValue(ctx, contextUser, builtinRole))
+			require.Error(t, err)
+			require.True(t, trace.IsAccessDenied(err))
+
+			builtinRole.Identity.Username = ""
+			_, err = authorizer.Authorize(context.WithValue(ctx, contextUser, builtinRole))
+			require.NoError(t, err)
+		})
 	}
-
-	// Apply a node lock.
-	nodeLock, err := types.NewLock("node-lock", types.LockSpecV2{
-		Target: types.LockTarget{Node: builtinRole.Identity.Username},
-	})
-	require.NoError(t, err)
-	upsertLockWithPutEvent(ctx, t, client, watcher, nodeLock)
-
-	_, err = authorizer.Authorize(context.WithValue(ctx, contextUser, builtinRole))
-	require.Error(t, err)
-	require.True(t, trace.IsAccessDenied(err))
-
-	builtinRole.Identity.Username = ""
-	_, err = authorizer.Authorize(context.WithValue(ctx, contextUser, builtinRole))
-	require.NoError(t, err)
 }
 
 func upsertLockWithPutEvent(ctx context.Context, t *testing.T, client *testClient, watcher *services.LockWatcher, lock types.Lock) {

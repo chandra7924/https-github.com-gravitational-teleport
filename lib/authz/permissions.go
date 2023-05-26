@@ -180,7 +180,7 @@ Loop:
 		}
 		lockTargets = append(lockTargets, unmappedTarget)
 	}
-	if r, ok := c.Identity.(BuiltinRole); ok && r.Role == types.RoleNode {
+	if r, ok := c.Identity.(BuiltinRole); ok {
 		lockTargets = append(lockTargets,
 			types.LockTarget{Node: r.GetServerID()},
 			types.LockTarget{Node: r.Identity.Username},

@@ -1322,13 +1322,13 @@ func (a *Server) generateHostCert(
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	if p.Role == types.RoleNode {
-		if lockErr := a.checkLockInForce(authPref.GetLockingMode(),
-			[]types.LockTarget{{Node: p.HostID}, {Node: HostFQDN(p.HostID, p.ClusterName)}},
-		); lockErr != nil {
-			return nil, trace.Wrap(lockErr)
-		}
+
+	if lockErr := a.checkLockInForce(authPref.GetLockingMode(),
+		[]types.LockTarget{{Node: p.HostID}, {Node: HostFQDN(p.HostID, p.ClusterName)}},
+	); lockErr != nil {
+		return nil, trace.Wrap(lockErr)
 	}
+
 	return a.Authority.GenerateHostCert(p)
 }
 
