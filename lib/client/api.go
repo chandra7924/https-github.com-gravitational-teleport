@@ -590,8 +590,7 @@ func IsErrorResolvableWithRelogin(err error) bool {
 }
 
 // LoadProfile populates Config with the values stored in the given
-// profiles directory. If profileDir is an empty string, the default profile
-// directory ~/.tsh is used.
+// profiles directory. If proxyAddr is empty, the current profile is used.
 func (c *Config) LoadProfile(ps ProfileStore, proxyAddr string) error {
 	var proxyHost string
 	var err error

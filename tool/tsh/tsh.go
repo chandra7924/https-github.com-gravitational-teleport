@@ -3391,6 +3391,19 @@ func makeClientForProxy(cf *CLIConf, proxy string) (*client.TeleportClient, erro
 		}
 	}
 
+	// When using Headless, check for missing proxy/user/cluster values from the teleport session env variables.
+	if cf.AuthConnector == constants.HeadlessConnector {
+		if c.WebProxyAddr == "" {
+			c.WebProxyAddr = os.Getenv(teleport.SSHSessionWebproxyAddr)
+		}
+		if c.Username == "" {
+			c.Username = os.Getenv(teleport.SSHTeleportUser)
+		}
+		if c.SiteName == "" {
+			c.SiteName = os.Getenv(teleport.SSHTeleportClusterName)
+		}
+	}
+
 	if err := tryLockMemory(cf); err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -4579,21 +4592,11 @@ func setEnvFlags(cf *CLIConf, getEnv envGetter) {
 			cf.SiteName = clusterName
 		} else if clusterName = getEnv(siteEnvVar); clusterName != "" {
 			cf.SiteName = clusterName
-		} else if clusterName = getEnv(teleport.SSHTeleportClusterName); clusterName != "" {
-			cf.SiteName = clusterName
 		}
 	}
 
 	if cf.KubernetesCluster == "" {
 		cf.KubernetesCluster = getEnv(kubeClusterEnvVar)
-	}
-
-	if cf.Username == "" {
-		cf.Username = getEnv(teleport.SSHTeleportUser)
-	}
-
-	if cf.Proxy == "" {
-		cf.Proxy = getEnv(teleport.SSHSessionWebproxyAddr)
 	}
 }
 
