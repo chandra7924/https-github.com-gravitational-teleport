@@ -77,19 +77,21 @@ func (c *LockCommand) TryRun(ctx context.Context, cmd string, client auth.Client
 
 // CreateLock creates a lock for the main `tctl lock` command.
 func (c *LockCommand) CreateLock(ctx context.Context, client auth.ClientI) error {
+	// Locking a node is now deprecated, but we still support it for backwards compatibility.
+	// Previously, locking a node would lock only the `ssh_service` from that node to
+	// access Teleport but didn't prevent any other roles that the same instance could run.
+	// Now, `tctl lock --server-id` should be used instead to lock the entire server.
+	// TODO: DELETE IN 15.0.0
+	if c.spec.Target.Node != "" {
+		c.config.Log.Warnf("`tctl lock --node <id>` is now deprecated. Please use `tctl lock --server-id <id>` instead.")
+	}
+
 	lockExpiry, err := computeLockExpiry(c.expires, c.ttl)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 	c.spec.Expires = lockExpiry
 
-	// If the user specify a server ID but not a node, copy the server ID to the node
-	// field. This is for backwards compatibility with previous versions of Teleport
-	// so that locking a node still works.
-	// TODO: DELETE IN 15.0.0
-	if c.spec.Target.ServerID != "" && c.spec.Target.Node == "" {
-		c.spec.Target.Node = c.spec.Target.ServerID
-	}
 	lock, err := types.NewLock(uuid.New().String(), c.spec)
 	if err != nil {
 		return trace.Wrap(err)

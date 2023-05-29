@@ -198,6 +198,13 @@ func (c *LockV2) CheckAndSetDefaults() error {
 	if c.Spec.Target.IsEmpty() {
 		return trace.BadParameter("at least one target field must be set")
 	}
+	// If the user specify a server ID but not a node, copy the server ID to the node
+	// field. This is for backwards compatibility with previous versions of Teleport
+	// so that locking a node still works.
+	// TODO: DELETE IN 15.0.0
+	if c.Spec.Target.ServerID != "" && c.Spec.Target.Node == "" {
+		c.Spec.Target.Node = c.Spec.Target.ServerID
+	}
 	return nil
 }
 
@@ -233,7 +240,13 @@ func (t LockTarget) Match(lock Lock) bool {
 		(t.WindowsDesktop == "" || lockTarget.WindowsDesktop == t.WindowsDesktop) &&
 		(t.AccessRequest == "" || lockTarget.AccessRequest == t.AccessRequest) &&
 		(t.Device == "" || lockTarget.Device == t.Device) &&
-		(t.Node == "" && t.ServerID == "" || lockTarget.Node == t.Node || lockTarget.ServerID == t.ServerID)
+		// If the t.Node is non-empty, then the lock target's node or server ID must match it.
+		(t.Node == "" || (lockTarget.Node == t.Node || lockTarget.ServerID == t.Node)) &&
+		// If the t.ServerID is non-empty, then the lock target's server ID or node must match it.
+		// `lockTarget.Node == t.ServerID`` and the previous condition `lockTarget.ServerID == t.Node`
+		// complete each other and are both required for backward compatibility with
+		// previous versions of Teleport where locking a node was encouraged by setting the Node field.
+		(t.ServerID == "" || (lockTarget.ServerID == t.ServerID || lockTarget.Node == t.ServerID))
 }
 
 // String returns string representation of the LockTarget.
