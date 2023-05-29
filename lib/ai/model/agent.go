@@ -18,23 +18,26 @@ package model
 
 import (
 	"context"
-	"encoding/json"
 	"strings"
 
 	"github.com/gravitational/trace"
 	"github.com/sashabaranov/go-openai"
 )
 
+const (
+	actionFinalAnswer = "Final Answer"
+	actionException   = "_Exception"
+)
+
 type Agent struct {
 	systemMessage string
 	tools         []Tool
-	LLMPrefix     string
 }
 
 type AgentAction struct {
-	action      string
-	actionInput string
-	log         string
+	action string
+	input  string
+	log    string
 }
 
 type AgentFinish struct {
@@ -47,6 +50,36 @@ type executionState struct {
 	humanMessage      openai.ChatCompletionMessage
 	intermediateSteps []AgentAction
 	observations      []string
+}
+
+type stepOutput struct {
+	finish      *AgentFinish
+	action      *AgentAction
+	observation string
+}
+
+func (a *Agent) takeNextStep(ctx context.Context, state *executionState) (stepOutput, error) {
+	_, finish, err := a.plan(ctx, state)
+	if err, ok := trace.Unwrap(err).(*invalidOutputError); ok {
+		action := &AgentAction{
+			action: actionException,
+			input:  "Invalid or incomplete response",
+			log:    err.Error(),
+		}
+
+		// The exception tool is currently a bit special, the observation is always equal to the input.
+		// We can expand on this in the future to make it handle errors better.
+		return stepOutput{action: action, observation: action.input}, nil
+	} else if err != nil {
+		return stepOutput{}, trace.Wrap(err)
+	}
+
+	// If finish is set, the agent is done and did not call upon any tool.
+	if finish != nil {
+		return stepOutput{finish: finish}, nil
+	}
+
+	return stepOutput{}, trace.NotImplemented("agent picked a tool, this should not happen yet")
 }
 
 func (a *Agent) plan(ctx context.Context, state *executionState) (*AgentAction, *AgentFinish, error) {
@@ -64,7 +97,8 @@ func (a *Agent) plan(ctx context.Context, state *executionState) (*AgentAction, 
 	}
 
 	llmOut := resp.Choices[0].Message.Content
-	return parseConversationOutput(llmOut)
+	action, finish, err := parseConversationOutput(llmOut)
+	return action, finish, trace.Wrap(err)
 }
 
 func (a *Agent) createPrompt(chatHistory, agentScratchpad []openai.ChatCompletionMessage, humanMessage openai.ChatCompletionMessage) []openai.ChatCompletionMessage {
@@ -110,36 +144,4 @@ func (a *Agent) constructScratchpad(intermediateSteps []AgentAction, observation
 	}
 
 	return thoughts
-}
-
-func parseConversationOutput(text string) (*AgentAction, *AgentFinish, error) {
-	cleaned := strings.TrimSpace(text)
-	if strings.Contains(cleaned, "```json") {
-		cleaned = strings.Split(cleaned, "```json")[1]
-	}
-	if strings.Contains(cleaned, "```") {
-		cleaned = strings.Split(cleaned, "```")[0]
-	}
-	if strings.HasPrefix(cleaned, "```json") {
-		cleaned = cleaned[len("```json"):]
-	}
-	if strings.HasPrefix(cleaned, "```") {
-		cleaned = cleaned[len("```"):]
-	}
-	if strings.HasSuffix(cleaned, "```") {
-		cleaned = cleaned[:len("```")]
-	}
-	cleaned = strings.TrimSpace(cleaned)
-	var response map[string]string
-	err := json.Unmarshal([]byte(cleaned), &response)
-	if err != nil {
-		return nil, nil, trace.Wrap(err)
-	}
-
-	action, actionInput := response["action"], response["action_input"]
-	if action == "Final Answer" {
-		return nil, &AgentFinish{output: actionInput}, nil
-	}
-
-	return &AgentAction{action: action, actionInput: actionInput}, nil, nil
 }
