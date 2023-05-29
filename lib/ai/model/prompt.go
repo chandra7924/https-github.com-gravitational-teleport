@@ -27,61 +27,57 @@ Assistant is constantly learning and improving, and its capabilities are constan
 Overall, Assistant is a powerful system that can help with a wide range of tasks and provide valuable insights and information on a wide range of topics. Whether you need help with a specific question or just want to have a conversation about a particular topic, Assistant is here to assist.`
 
 func conversationParserFormatInstructionsPrompt(toolnames []string) string {
-	return fmt.Sprintf(
-		`RESPONSE FORMAT INSTRUCTIONS
-		----------------------------
+	return fmt.Sprintf(`RESPONSE FORMAT INSTRUCTIONS
+----------------------------
 
-		When responding to me, please output a response in one of two formats:
+When responding to me, please output a response in one of two formats:
 
-		**Option 1:**
-		Use this if you want the human to use a tool.
-		Markdown code snippet formatted in the following schema:
+**Option 1:**
+Use this if you want the human to use a tool.
+Markdown code snippet formatted in the following schema:
 
-		%vjson
-		{
-    		"action": string \\ The action to take. Must be one of %v
-    		"action_input": string \\ The input to the action
-		}
-		%v
+%vjson
+{
+	"action": string \\ The action to take. Must be one of %v
+	"action_input": string \\ The input to the action
+}
+%v
 
-		**Option #2:**
-		Use this if you want to respond directly to the human. Markdown code snippet formatted in the following schema:
+**Option #2:**
+Use this if you want to respond directly to the human. Markdown code snippet formatted in the following schema:
 
-		%vjson
-		{
-		    "action": "Final Answer",
-		    "action_input": string \\ You should put what you want to return to use here
-		}
-		%v`, "```", toolnames, "```", "```", "```",
+%vjson
+{
+    "action": "Final Answer",
+    "action_input": string \\ You should put what you want to return to use here
+}
+%v`, "```", toolnames, "```", "```", "```",
 	)
 }
 
 func conversationToolUsePrompt(tools string, formatInstructions string, userInput string) string {
-	return fmt.Sprintf(
-		`TOOLS
-		------
-		Assistant can ask the user to use tools to look up information that may be helpful in answering the users original question. The tools the human can use are:
+	return fmt.Sprintf(`TOOLS
+------
+Assistant can ask the user to use tools to look up information that may be helpful in answering the users original question. The tools the human can use are:
 
-		%v
+%v
 
-		%v
+%v
 
-		USER'S INPUT
-		--------------------
-		Here is the user's input (remember to respond with a markdown code snippet of a json blob with a single action, and NOTHING else):
+USER'S INPUT
+--------------------
+Here is the user's input (remember to respond with a markdown code snippet of a json blob with a single action, and NOTHING else):
 
-		%v`, tools, formatInstructions, userInput,
-	)
+%v`, tools, formatInstructions, userInput)
 }
 
 func conversationToolResponse(toolResponse string) string {
-	return fmt.Sprintf(
-		`TOOL RESPONSE: 
-		---------------------
-		%v
+	return fmt.Sprintf(`TOOL RESPONSE: 
+---------------------
+%v
 
-		USER'S INPUT
-		--------------------
+USER'S INPUT
+--------------------
 
-		Okay, so what is the response to my last comment? If using information obtained from the tools you must mention it explicitly without mentioning the tool names - I have forgotten all TOOL RESPONSES! Remember to respond with a markdown code snippet of a json blob with a single action, and NOTHING else.`, toolResponse)
+Okay, so what is the response to my last comment? If using information obtained from the tools you must mention it explicitly without mentioning the tool names - I have forgotten all TOOL RESPONSES! Remember to respond with a markdown code snippet of a json blob with a single action, and NOTHING else.`, toolResponse)
 }
