@@ -59,7 +59,10 @@ Markdown code snippet formatted in the following schema:
 %v
 
 **Option #2:**
-Use this if you want to respond directly to the human. Markdown code snippet formatted in the following schema:
+Use this if you want to respond directly to the human or you want to ask the human a question to gather more information.
+You should avoid asking too many questions when you have other options available to you as it may be perceived as annoying.
+But asking is far better than guessing or making assumptions.
+Markdown code snippet formatted in the following schema:
 
 %vjson
 {

@@ -22,5 +22,5 @@ type Tool interface {
 	Name() string
 	Description() string
 	ReturnDirect() bool
-	Run(ctx context.Context, args map[string]any) (string, error)
+	Run(ctx context.Context, input string) (string, error)
 }

@@ -63,7 +63,6 @@ func (a *Agent) Think(ctx context.Context, llm *openai.Client, chatHistory []ope
 	log.Debug("entering agent think loop")
 	iterations := 0
 	start := time.Now()
-	log.Debugf("performing iteration %v of loop, %v seconds elapsed", iterations, int(time.Since(start).Seconds()))
 	shouldExit := func() bool { return iterations > maxIterations || time.Since(start) > maxElapsedTime }
 	state := &executionState{
 		llm:               llm,
@@ -74,6 +73,8 @@ func (a *Agent) Think(ctx context.Context, llm *openai.Client, chatHistory []ope
 	}
 
 	for {
+		log.Debugf("performing iteration %v of loop, %v seconds elapsed", iterations, int(time.Since(start).Seconds()))
+
 		// This is intentionally not context-based, as we want to finish the current step before exiting
 		// and the concern is not that we're stuck but that we're taking too long over multiple iterations.
 		if shouldExit() {
@@ -114,8 +115,8 @@ func (a *Agent) takeNextStep(ctx context.Context, state *executionState) (stepOu
 		log.Debugf("agent encountered an invalid output error: %v, attempting to recover", err)
 		action := &AgentAction{
 			action: actionException,
-			input:  "Invalid or incomplete response",
-			log:    err.Error(),
+			input:  observationPrefix + "Invalid or incomplete response",
+			log:    thoughtPrefix + err.Error(),
 		}
 
 		// The exception tool is currently a bit special, the observation is always equal to the input.
@@ -145,8 +146,8 @@ func (a *Agent) takeNextStep(ctx context.Context, state *executionState) (stepOu
 		log.Debugf("agent picked an unknown tool %v", action.action)
 		action := &AgentAction{
 			action: actionException,
-			input:  "Unknown tool",
-			log:    "No tool with name " + action.action + " exists.",
+			input:  observationPrefix + "Unknown tool",
+			log:    thoughtPrefix + "No tool with name " + action.action + " exists.",
 		}
 
 		return stepOutput{action: action, observation: action.input}, nil
@@ -186,6 +187,10 @@ func (a *Agent) createPrompt(chatHistory, agentScratchpad []openai.ChatCompletio
 		toolList.WriteString(": ")
 		toolList.WriteString(tool.Description())
 		toolList.WriteString("\n")
+	}
+
+	if len(a.tools) == 0 {
+		toolList.WriteString("No tools available.")
 	}
 
 	formatInstructions := conversationParserFormatInstructionsPrompt(toolNames)
