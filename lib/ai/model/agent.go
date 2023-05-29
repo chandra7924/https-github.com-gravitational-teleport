@@ -19,6 +19,7 @@ package model
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/gravitational/trace"
 	"github.com/sashabaranov/go-openai"
@@ -27,6 +28,8 @@ import (
 const (
 	actionFinalAnswer = "Final Answer"
 	actionException   = "_Exception"
+	maxIterations     = 15
+	maxElapsedTime    = 5 * time.Minute
 )
 
 type Agent struct {
@@ -50,6 +53,43 @@ type executionState struct {
 	humanMessage      openai.ChatCompletionMessage
 	intermediateSteps []AgentAction
 	observations      []string
+}
+
+func (a *Agent) Think(ctx context.Context, llm openai.Client, chatHistory []openai.ChatCompletionMessage, humanMessage openai.ChatCompletionMessage) (string, error) {
+	iterations := 0
+	start := time.Now()
+	shouldExit := func() bool { return iterations > maxIterations || time.Since(start) > maxElapsedTime }
+	state := &executionState{
+		llm:               llm,
+		chatHistory:       chatHistory,
+		humanMessage:      humanMessage,
+		intermediateSteps: make([]AgentAction, 0),
+		observations:      make([]string, 0),
+	}
+
+	for {
+		// This is intentionally not context-based, as we want to finish the current step before exiting
+		// and the concern is not that we're stuck but that we're taking too long over multiple iterations.
+		if shouldExit() {
+			return "nil", trace.Errorf("timeout: agent took too long to finish")
+		}
+
+		output, err := a.takeNextStep(ctx, state)
+		if err != nil {
+			return "", trace.Wrap(err)
+		}
+
+		if output.finish != nil {
+			return output.finish.output, nil
+		}
+
+		if output.action != nil {
+			state.intermediateSteps = append(state.intermediateSteps, *output.action)
+			state.observations = append(state.observations, output.observation)
+		}
+
+		iterations++
+	}
 }
 
 type stepOutput struct {
