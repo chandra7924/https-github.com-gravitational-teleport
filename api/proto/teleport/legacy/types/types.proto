@@ -4413,7 +4413,10 @@ message LockTarget {
   // Node specifies the UUID of a Teleport node.
   // A matching node is also prevented from heartbeating to the auth server.
   // DEPRECATED: use ServerID instead.
-  string Node = 4 [(gogoproto.jsontag) = "node,omitempty"];
+  string Node = 4 [
+    deprecated = true,
+    (gogoproto.jsontag) = "node,omitempty"
+  ];
 
   // MFADevice specifies the UUID of a user MFA device.
   string MFADevice = 5 [(gogoproto.jsontag) = "mfa_device,omitempty"];
@@ -4428,7 +4431,7 @@ message LockTarget {
   // Requires Teleport Enterprise.
   string Device = 8 [(gogoproto.jsontag) = "device,omitempty"];
 
-  // ServerID is the server id of the Teleport instance.
+  // ServerID is the host id of the Teleport instance.
   string ServerID = 9 [(gogoproto.jsontag) = "server_id,omitempty"];
 }
 
