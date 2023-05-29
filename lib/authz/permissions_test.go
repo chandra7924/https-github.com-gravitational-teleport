@@ -44,38 +44,93 @@ const clusterName = "test-cluster"
 
 func TestContextLockTargets(t *testing.T) {
 	t.Parallel()
-	for _, role := range types.LocalServiceMappings() {
-		t.Run(
-			role.String(),
-			func(t *testing.T) {
-				authContext := &Context{
-					Identity: BuiltinRole{
-						Role:        role,
-						ClusterName: "cluster",
-						Identity: tlsca.Identity{
-							Username: "node.cluster",
-							Groups:   []string{"role1", "role2"},
-							DeviceExtensions: tlsca.DeviceExtensions{
-								DeviceID: "device1",
-							},
+
+	tests := []struct {
+		role types.SystemRole
+		want []types.LockTarget
+	}{
+		{
+			role: types.RoleNode,
+			want: []types.LockTarget{
+				{Node: "node", ServerID: "node"},
+				{Node: "node.cluster", ServerID: "node.cluster"},
+				{User: "node.cluster"},
+				{Role: "role1"},
+				{Role: "role2"},
+				{Role: "mapped-role"},
+				{Device: "device1"},
+			},
+		},
+		{
+			role: types.RoleAuth,
+			want: []types.LockTarget{
+				{ServerID: "node"},
+				{ServerID: "node.cluster"},
+				{User: "node.cluster"},
+				{Role: "role1"},
+				{Role: "role2"},
+				{Role: "mapped-role"},
+				{Device: "device1"},
+			},
+		},
+		{
+			role: types.RoleProxy,
+			want: []types.LockTarget{
+				{ServerID: "node"},
+				{ServerID: "node.cluster"},
+				{User: "node.cluster"},
+				{Role: "role1"},
+				{Role: "role2"},
+				{Role: "mapped-role"},
+				{Device: "device1"},
+			},
+		},
+		{
+			role: types.RoleKube,
+			want: []types.LockTarget{
+				{ServerID: "node"},
+				{ServerID: "node.cluster"},
+				{User: "node.cluster"},
+				{Role: "role1"},
+				{Role: "role2"},
+				{Role: "mapped-role"},
+				{Device: "device1"},
+			},
+		},
+		{
+			role: types.RoleDatabase,
+			want: []types.LockTarget{
+				{ServerID: "node"},
+				{ServerID: "node.cluster"},
+				{User: "node.cluster"},
+				{Role: "role1"},
+				{Role: "role2"},
+				{Role: "mapped-role"},
+				{Device: "device1"},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.role.String(), func(t *testing.T) {
+			authContext := &Context{
+				Identity: BuiltinRole{
+					Role:        tt.role,
+					ClusterName: "cluster",
+					Identity: tlsca.Identity{
+						Username: "node.cluster",
+						Groups:   []string{"role1", "role2"},
+						DeviceExtensions: tlsca.DeviceExtensions{
+							DeviceID: "device1",
 						},
 					},
-					UnmappedIdentity: WrapIdentity(tlsca.Identity{
-						Username: "node.cluster",
-						Groups:   []string{"mapped-role"},
-					}),
-				}
-				expected := []types.LockTarget{
-					{Node: "node"},
-					{Node: "node.cluster"},
-					{User: "node.cluster"},
-					{Role: "role1"},
-					{Role: "role2"},
-					{Role: "mapped-role"},
-					{Device: "device1"},
-				}
-				require.ElementsMatch(t, authContext.LockTargets(), expected)
-			})
+				},
+				UnmappedIdentity: WrapIdentity(tlsca.Identity{
+					Username: "node.cluster",
+					Groups:   []string{"mapped-role"},
+				}),
+			}
+			require.ElementsMatch(t, authContext.LockTargets(), tt.want)
+		})
 	}
 }
 

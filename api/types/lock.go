@@ -229,11 +229,11 @@ func (t LockTarget) Match(lock Lock) bool {
 	return (t.User == "" || lockTarget.User == t.User) &&
 		(t.Role == "" || lockTarget.Role == t.Role) &&
 		(t.Login == "" || lockTarget.Login == t.Login) &&
-		(t.Node == "" || lockTarget.Node == t.Node) &&
 		(t.MFADevice == "" || lockTarget.MFADevice == t.MFADevice) &&
 		(t.WindowsDesktop == "" || lockTarget.WindowsDesktop == t.WindowsDesktop) &&
 		(t.AccessRequest == "" || lockTarget.AccessRequest == t.AccessRequest) &&
-		(t.Device == "" || lockTarget.Device == t.Device)
+		(t.Device == "" || lockTarget.Device == t.Device) &&
+		(t.Node == "" && t.ServerID == "" || lockTarget.Node == t.Node || lockTarget.ServerID == t.ServerID)
 }
 
 // String returns string representation of the LockTarget.
