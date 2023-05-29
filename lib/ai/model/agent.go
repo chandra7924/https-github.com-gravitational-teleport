@@ -17,6 +17,7 @@ limitations under the License.
 package model
 
 import (
+	"context"
 	"encoding/json"
 	"strings"
 
@@ -25,9 +26,9 @@ import (
 )
 
 type Agent struct {
-	Prompt    string
-	Tools     []Tool
-	LLMPrefix string
+	systemMessage string
+	tools         []Tool
+	LLMPrefix     string
 }
 
 type AgentAction struct {
@@ -40,17 +41,43 @@ type AgentFinish struct {
 	output string
 }
 
-func (a *Agent) createPrompt(systemMessage string, chatHistory []openai.ChatCompletionMessage, humanMessage, agentScratchpad []openai.ChatCompletionMessage) []openai.ChatCompletionMessage {
+type executionState struct {
+	llm               openai.Client
+	chatHistory       []openai.ChatCompletionMessage
+	humanMessage      openai.ChatCompletionMessage
+	intermediateSteps []AgentAction
+	observations      []string
+}
+
+func (a *Agent) plan(ctx context.Context, state *executionState) (*AgentAction, *AgentFinish, error) {
+	scratchpad := a.constructScratchpad(state.intermediateSteps, state.observations)
+	prompt := a.createPrompt(state.chatHistory, scratchpad, state.humanMessage)
+	resp, err := state.llm.CreateChatCompletion(
+		ctx,
+		openai.ChatCompletionRequest{
+			Model:    openai.GPT4,
+			Messages: prompt,
+		},
+	)
+	if err != nil {
+		return nil, nil, trace.Wrap(err)
+	}
+
+	llmOut := resp.Choices[0].Message.Content
+	return parseConversationOutput(llmOut)
+}
+
+func (a *Agent) createPrompt(chatHistory, agentScratchpad []openai.ChatCompletionMessage, humanMessage openai.ChatCompletionMessage) []openai.ChatCompletionMessage {
 	prompt := make([]openai.ChatCompletionMessage, 0)
 	prompt = append(prompt, openai.ChatCompletionMessage{
 		Role:    openai.ChatMessageRoleSystem,
-		Content: systemMessage,
+		Content: a.systemMessage,
 	})
 	prompt = append(prompt, chatHistory...)
 
 	toolList := strings.Builder{}
-	toolNames := make([]string, 0, len(a.Tools))
-	for _, tool := range a.Tools {
+	toolNames := make([]string, 0, len(a.tools))
+	for _, tool := range a.tools {
 		toolNames = append(toolNames, tool.Name())
 		toolList.WriteString("> ")
 		toolList.WriteString(tool.Name())
@@ -60,7 +87,7 @@ func (a *Agent) createPrompt(systemMessage string, chatHistory []openai.ChatComp
 	}
 
 	formatInstructions := conversationParserFormatInstructionsPrompt(toolNames)
-	newHumanMessage := conversationToolUsePrompt(toolList.String(), formatInstructions, humanMessage[0].Content)
+	newHumanMessage := conversationToolUsePrompt(toolList.String(), formatInstructions, humanMessage.Content)
 	prompt = append(prompt, openai.ChatCompletionMessage{
 		Role:    openai.ChatMessageRoleUser,
 		Content: newHumanMessage,
@@ -85,7 +112,7 @@ func (a *Agent) constructScratchpad(intermediateSteps []AgentAction, observation
 	return thoughts
 }
 
-func parseConversationOutput(text string) (any, error) {
+func parseConversationOutput(text string) (*AgentAction, *AgentFinish, error) {
 	cleaned := strings.TrimSpace(text)
 	if strings.Contains(cleaned, "```json") {
 		cleaned = strings.Split(cleaned, "```json")[1]
@@ -106,13 +133,13 @@ func parseConversationOutput(text string) (any, error) {
 	var response map[string]string
 	err := json.Unmarshal([]byte(cleaned), &response)
 	if err != nil {
-		return nil, trace.Wrap(err)
+		return nil, nil, trace.Wrap(err)
 	}
 
 	action, actionInput := response["action"], response["action_input"]
 	if action == "Final Answer" {
-		return AgentFinish{output: actionInput}, nil
+		return nil, &AgentFinish{output: actionInput}, nil
 	}
 
-	return AgentAction{action: action, actionInput: actionInput}, nil
+	return &AgentAction{action: action, actionInput: actionInput}, nil, nil
 }
