@@ -19,6 +19,7 @@ package ai
 import (
 	"context"
 
+	"github.com/gravitational/teleport/lib/ai/model"
 	"github.com/gravitational/trace"
 	"github.com/sashabaranov/go-openai"
 	"github.com/tiktoken-go/tokenizer/codec"
@@ -47,7 +48,7 @@ func (client *Client) NewChat(username string) *Chat {
 		messages: []openai.ChatCompletionMessage{
 			{
 				Role:    openai.ChatMessageRoleSystem,
-				Content: promptCharacter(username),
+				Content: model.PromptCharacter(username),
 			},
 		},
 		// Initialize a tokenizer for prompt token accounting.
@@ -63,7 +64,7 @@ func (client *Client) Summary(ctx context.Context, message string) (string, erro
 		openai.ChatCompletionRequest{
 			Model: openai.GPT4,
 			Messages: []openai.ChatCompletionMessage{
-				{Role: openai.ChatMessageRoleSystem, Content: promptSummarizeTitle},
+				{Role: openai.ChatMessageRoleSystem, Content: model.PromptSummarizeTitle},
 				{Role: openai.ChatMessageRoleUser, Content: message},
 			},
 		},

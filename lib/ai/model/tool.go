@@ -22,12 +22,5 @@ type Tool interface {
 	Name() string
 	Description() string
 	ReturnDirect() bool
-	ArgumentSchema() []ToolArgumentField
 	Run(ctx context.Context, args map[string]any) (string, error)
-}
-
-type ToolArgumentField struct {
-	Name        string
-	Type        string
-	Instruction string
 }

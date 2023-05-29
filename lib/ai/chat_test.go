@@ -22,6 +22,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/gravitational/teleport/lib/ai/model"
 	"github.com/sashabaranov/go-openai"
 	"github.com/stretchr/testify/require"
 	"github.com/tiktoken-go/tokenizer/codec"
@@ -70,7 +71,7 @@ func TestChat_PromptTokens(t *testing.T) {
 			messages: []openai.ChatCompletionMessage{
 				{
 					Role:    openai.ChatMessageRoleSystem,
-					Content: promptCharacter("Bob"),
+					Content: model.PromptCharacter("Bob"),
 				},
 				{
 					Role:    openai.ChatMessageRoleUser,
@@ -124,7 +125,7 @@ func TestChat_Complete(t *testing.T) {
 	chat := client.NewChat("Bob")
 
 	t.Run("initial message", func(t *testing.T) {
-		msg, err := chat.Complete(context.Background())
+		msg, err := chat.Complete(context.Background(), "")
 		require.NoError(t, err)
 
 		expectedResp := &Message{Role: "assistant",
@@ -137,7 +138,7 @@ func TestChat_Complete(t *testing.T) {
 	t.Run("text completion", func(t *testing.T) {
 		chat.Insert(openai.ChatMessageRoleUser, "Show me free disk space")
 
-		msg, err := chat.Complete(context.Background())
+		msg, err := chat.Complete(context.Background(), "")
 		require.NoError(t, err)
 
 		require.IsType(t, &StreamingMessage{}, msg)
@@ -153,7 +154,7 @@ func TestChat_Complete(t *testing.T) {
 	t.Run("command completion", func(t *testing.T) {
 		chat.Insert(openai.ChatMessageRoleUser, "localhost")
 
-		msg, err := chat.Complete(context.Background())
+		msg, err := chat.Complete(context.Background(), "")
 		require.NoError(t, err)
 
 		require.IsType(t, &CompletionCommand{}, msg)

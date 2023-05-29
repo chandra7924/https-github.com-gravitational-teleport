@@ -23,6 +23,7 @@ import (
 
 	"github.com/gravitational/trace"
 	"github.com/sashabaranov/go-openai"
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -32,9 +33,12 @@ const (
 	maxElapsedTime    = 5 * time.Minute
 )
 
+var AssistAgent = &Agent{
+	tools: []Tool{},
+}
+
 type Agent struct {
-	systemMessage string
-	tools         []Tool
+	tools []Tool
 }
 
 type AgentAction struct {
@@ -48,16 +52,18 @@ type AgentFinish struct {
 }
 
 type executionState struct {
-	llm               openai.Client
+	llm               *openai.Client
 	chatHistory       []openai.ChatCompletionMessage
 	humanMessage      openai.ChatCompletionMessage
 	intermediateSteps []AgentAction
 	observations      []string
 }
 
-func (a *Agent) Think(ctx context.Context, llm openai.Client, chatHistory []openai.ChatCompletionMessage, humanMessage openai.ChatCompletionMessage) (string, error) {
+func (a *Agent) Think(ctx context.Context, llm *openai.Client, chatHistory []openai.ChatCompletionMessage, humanMessage openai.ChatCompletionMessage) (string, error) {
+	log.Debug("entering agent think loop")
 	iterations := 0
 	start := time.Now()
+	log.Debugf("performing iteration %v of loop, %v seconds elapsed", iterations, int(time.Since(start).Seconds()))
 	shouldExit := func() bool { return iterations > maxIterations || time.Since(start) > maxElapsedTime }
 	state := &executionState{
 		llm:               llm,
@@ -80,6 +86,7 @@ func (a *Agent) Think(ctx context.Context, llm openai.Client, chatHistory []open
 		}
 
 		if output.finish != nil {
+			log.Debugf("agent finished with output: %v", output.finish.output)
 			return output.finish.output, nil
 		}
 
@@ -99,8 +106,12 @@ type stepOutput struct {
 }
 
 func (a *Agent) takeNextStep(ctx context.Context, state *executionState) (stepOutput, error) {
-	_, finish, err := a.plan(ctx, state)
+	log.Debug("agent entering takeNextStep")
+	defer log.Debug("agent exiting takeNextStep")
+
+	action, finish, err := a.plan(ctx, state)
 	if err, ok := trace.Unwrap(err).(*invalidOutputError); ok {
+		log.Debugf("agent encountered an invalid output error: %v, attempting to recover", err)
 		action := &AgentAction{
 			action: actionException,
 			input:  "Invalid or incomplete response",
@@ -109,17 +120,39 @@ func (a *Agent) takeNextStep(ctx context.Context, state *executionState) (stepOu
 
 		// The exception tool is currently a bit special, the observation is always equal to the input.
 		// We can expand on this in the future to make it handle errors better.
+		log.Debugf("agent decided on action %v and received observation %v", action.action, action.input)
 		return stepOutput{action: action, observation: action.input}, nil
 	} else if err != nil {
+		log.Debugf("agent encountered an error: %v", err)
 		return stepOutput{}, trace.Wrap(err)
 	}
 
 	// If finish is set, the agent is done and did not call upon any tool.
 	if finish != nil {
+		log.Debug("agent picked finish, returning")
 		return stepOutput{finish: finish}, nil
 	}
 
-	return stepOutput{}, trace.NotImplemented("agent picked a tool, this should not happen yet")
+	var tool Tool
+	for _, candidate := range a.tools {
+		if candidate.Name() == action.action {
+			tool = candidate
+			break
+		}
+	}
+
+	if tool == nil {
+		log.Debugf("agent picked an unknown tool %v", action.action)
+		action := &AgentAction{
+			action: actionException,
+			input:  "Unknown tool",
+			log:    "No tool with name " + action.action + " exists.",
+		}
+
+		return stepOutput{action: action, observation: action.input}, nil
+	}
+
+	return stepOutput{}, trace.NotImplemented("")
 }
 
 func (a *Agent) plan(ctx context.Context, state *executionState) (*AgentAction, *AgentFinish, error) {
@@ -143,12 +176,7 @@ func (a *Agent) plan(ctx context.Context, state *executionState) (*AgentAction, 
 
 func (a *Agent) createPrompt(chatHistory, agentScratchpad []openai.ChatCompletionMessage, humanMessage openai.ChatCompletionMessage) []openai.ChatCompletionMessage {
 	prompt := make([]openai.ChatCompletionMessage, 0)
-	prompt = append(prompt, openai.ChatCompletionMessage{
-		Role:    openai.ChatMessageRoleSystem,
-		Content: a.systemMessage,
-	})
 	prompt = append(prompt, chatHistory...)
-
 	toolList := strings.Builder{}
 	toolNames := make([]string, 0, len(a.tools))
 	for _, tool := range a.tools {
