@@ -862,7 +862,7 @@ func TestDiscoveryConfig(t *testing.T) {
 				}
 			},
 			expectedDiscoverySection: Discovery{
-				GCPMatchers: []GCPMatcher{
+				GCPMatchers: []types.GCPMatcher{
 					{
 						Types:     []string{"gke"},
 						Locations: []string{"*"},
@@ -892,7 +892,7 @@ func TestDiscoveryConfig(t *testing.T) {
 				}
 			},
 			expectedDiscoverySection: Discovery{
-				GCPMatchers: []GCPMatcher{
+				GCPMatchers: []types.GCPMatcher{
 					{
 						Types:     []string{"gke"},
 						Locations: []string{"eucentral1"},
@@ -994,7 +994,7 @@ func TestDiscoveryConfig(t *testing.T) {
 							SSHDConfig: "/etc/ssh/sshd_config",
 							ScriptName: installers.InstallerScriptName,
 						},
-						SSM: AWSSSM{DocumentName: defaults.AWSInstallerDocument},
+						SSM: types.AWSSSM{DocumentName: defaults.AWSInstallerDocument},
 					},
 				},
 			},
@@ -1043,7 +1043,7 @@ func TestDiscoveryConfig(t *testing.T) {
 							SSHDConfig: "/etc/ssh/sshd_config",
 							ScriptName: "installer-custom",
 						},
-						SSM:           AWSSSM{DocumentName: "hello_document"},
+						SSM:           types.AWSSSM{DocumentName: "hello_document"},
 						AssumeRoleARN: "arn:aws:iam::123456789012:role/DBDiscoverer",
 						ExternalID:    "externalID123",
 					},
@@ -1141,7 +1141,7 @@ func TestDiscoveryConfig(t *testing.T) {
 							SSHDConfig: "/etc/ssh/sshd_config",
 							ScriptName: "default-installer",
 						},
-						SSM:           AWSSSM{DocumentName: "TeleportDiscoveryInstaller"},
+						SSM:           types.AWSSSM{DocumentName: "TeleportDiscoveryInstaller"},
 						AssumeRoleARN: "",
 						ExternalID:    "externalid123",
 					},
@@ -1206,7 +1206,7 @@ func TestDiscoveryConfig(t *testing.T) {
 			expectedDiscoverySection: Discovery{
 				AWSMatchers: []AWSMatcher{
 					{
-						SSM: AWSSSM{
+						SSM: types.AWSSSM{
 							DocumentName: defaults.AWSInstallerDocument,
 						},
 						Regions: []string{"eu-west-1"},

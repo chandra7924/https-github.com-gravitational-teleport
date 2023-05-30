@@ -5740,3 +5740,106 @@ message JamfInventoryEntry {
   // Defaults to "NOOP".
   string on_missing = 4 [(gogoproto.jsontag) = "on_missing,omitempty"];
 }
+
+// AWSMatcher matches AWS EC2 instances and AWS Databases
+message AWSMatcher {
+  // Types are AWS database types to match, "ec2", "rds", "redshift", "elasticache",
+  // or "memorydb".
+  repeated string Types = 1 [(gogoproto.jsontag) = "types,omitempty"];
+  // Regions are AWS regions to query for databases.
+  repeated string Regions = 2 [(gogoproto.jsontag) = "regions,omitempty"];
+  // AssumeRoleARN is the AWS role to assume for database discovery.
+  string AssumeRoleARN = 3 [(gogoproto.jsontag) = "assume_role_arn,omitempty"];
+  // ExternalID is the AWS external ID to use when assuming a role for
+  // database discovery in an external AWS account.
+  string ExternalID = 4 [(gogoproto.jsontag) = "external_id,omitempty"];
+  // Tags are AWS tags to match.
+  wrappers.LabelValues Tags = 5 [
+    (gogoproto.nullable) = false,
+    (gogoproto.jsontag) = "tags,omitempty",
+    (gogoproto.customtype) = "Labels"
+  ];
+  // InstallParams sets the join method when installing on
+  // discovered EC2 nodes
+  InstallParams InstallParams = 6 [(gogoproto.jsontag) = "install,omitempty"];
+  // SSM provides options to use when sending a document command to
+  // an EC2 node
+  AWSSSM SSM = 7 [(gogoproto.jsontag) = "ssm,omitempty"];
+}
+
+// InstallParams sets join method to use on discovered nodes
+message InstallParams {
+  // JoinParams sets the token and method to use when generating
+  // config on cloud instances
+  JoinParams JoinParams = 1 [(gogoproto.jsontag) = "join_params,omitempty"];
+  // ScriptName is the name of the teleport installer script
+  // resource for the cloud instance to execute
+  string ScriptName = 2 [(gogoproto.jsontag) = "script_name,omitempty"];
+  // InstallTeleport disables agentless discovery
+  string InstallTeleport = 3 [(gogoproto.jsontag) = "install_teleport,omitempty"];
+  // SSHDConfig provides the path to write sshd configuration changes
+  string SSHDConfig = 4 [(gogoproto.jsontag) = "sshd_config,omitempty"];
+  // PublicProxyAddr is the address of the proxy the discovered node should use
+  // to connect to the cluster. Used only in Azure.
+  string PublicProxyAddr = 5 [(gogoproto.jsontag) = "public,omitempty"];
+}
+
+// AWSSSM provides options to use when executing SSM documents
+message AWSSSM {
+  // DocumentName is the name of the document to use when executing an
+  // SSM command
+  string DocumentName = 1 [(gogoproto.jsontag) = "document_name,omitempty"];
+}
+
+// JoinParams configures the parameters for Simplified Node Joining.
+message JoinParams {
+  string TokenName = 1 [(gogoproto.jsontag) = "token_name"];
+  string Method = 4 [
+    (gogoproto.jsontag) = "method",
+    (gogoproto.casttype) = "JoinMethod"
+  ];
+  AzureJoinParams Azure = 3 [(gogoproto.jsontag) = "azure,omitempty"];
+}
+
+// AzureJoinParams configures the parameters specific to the Azure join method.
+message AzureJoinParams {
+  string ClientID = 1 [(gogoproto.jsontag) = "client_id,omitempty"];
+}
+
+// AzureMatcher matches Azure resources.
+// It defines which resource types, filters and some configuration params.
+message AzureMatcher {
+  // Subscriptions are Azure subscriptions to query for resources.
+  repeated string Subscriptions = 1 [(gogoproto.jsontag) = "subscriptions,omitempty"];
+  // ResourceGroups are Azure resource groups to query for resources.
+  repeated string ResourceGroups = 2 [(gogoproto.jsontag) = "resource_groups,omitempty"];
+  // Types are Azure types to match: "mysql", "postgres", "aks", "vm"
+  repeated string Types = 3 [(gogoproto.jsontag) = "types,omitempty"];
+  // Regions are Azure locations to match for databases.
+  repeated string Regions = 4 [(gogoproto.jsontag) = "regions,omitempty"];
+  // ResourceTags are Azure tags on resources to match.
+  wrappers.LabelValues ResourceTags = 5 [
+    (gogoproto.nullable) = false,
+    (gogoproto.jsontag) = "tags,omitempty",
+    (gogoproto.customtype) = "Labels"
+  ];
+  // InstallParams sets the join method when installing on
+  // discovered Azure nodes.
+  InstallParams InstallParams = 6 [(gogoproto.jsontag) = "install,omitempty"];
+}
+
+// GCPMatcher matches GCP resources.
+message GCPMatcher {
+  // Types are GKE resource types to match: "gke".
+  repeated string Types = 1 [(gogoproto.jsontag) = "types,omitempty"];
+  // Locations are GKE locations to search resources for.
+  repeated string Locations = 2 [(gogoproto.jsontag) = "locations,omitempty"];
+  // Tags are GCP labels to match.
+  wrappers.LabelValues Tags = 3 [
+    (gogoproto.nullable) = false,
+    (gogoproto.jsontag) = "tags,omitempty",
+    (gogoproto.customtype) = "Labels"
+  ];
+  // ProjectIDs are the GCP project ID where the resources are deployed.
+  repeated string ProjectIDs = 4 [(gogoproto.jsontag) = "project_ids,omitempty"];
+}

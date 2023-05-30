@@ -1369,7 +1369,7 @@ func TestAWSDocumentConfigurator(t *testing.T) {
 				{
 					Types:   []string{"ec2"},
 					Regions: []string{"eu-central-1"},
-					SSM:     config.AWSSSM{DocumentName: "document"},
+					SSM:     types.AWSSSM{DocumentName: "document"},
 				},
 			},
 		},

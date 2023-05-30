@@ -14,7 +14,10 @@
 
 package servicecfg
 
-import "github.com/gravitational/teleport/lib/services"
+import (
+	"github.com/gravitational/teleport/api/types"
+	"github.com/gravitational/teleport/lib/services"
+)
 
 type DiscoveryConfig struct {
 	Enabled bool
@@ -23,7 +26,7 @@ type DiscoveryConfig struct {
 	// AzureMatchers are used to match resources for auto enrollment.
 	AzureMatchers []services.AzureMatcher
 	// GCPMatchers are used to match GCP resources for auto discovery.
-	GCPMatchers []services.GCPMatcher
+	GCPMatchers []types.GCPMatcher
 	// DiscoveryGroup is the name of the discovery group that the current
 	// discovery service is a part of.
 	// It is used to filter out discovered resources that belong to another

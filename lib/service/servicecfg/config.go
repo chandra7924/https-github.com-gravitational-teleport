@@ -299,12 +299,7 @@ func DisableLongRunningServices(cfg *Config) {
 
 // JoinParams is a set of extra parameters for joining the auth server.
 type JoinParams struct {
-	Azure AzureJoinParams
-}
-
-// AzureJoinParams is the parameters specific to the azure join method.
-type AzureJoinParams struct {
-	ClientID string
+	Azure types.AzureJoinParams
 }
 
 // CachePolicy sets caching policy for proxies and nodes

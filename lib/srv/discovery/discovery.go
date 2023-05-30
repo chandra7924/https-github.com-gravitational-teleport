@@ -54,7 +54,7 @@ type Config struct {
 	// AzureMatchers is a list of Azure matchers to discover resources.
 	AzureMatchers []services.AzureMatcher
 	// GCPMatchers is a list of GCP matchers to discover resources.
-	GCPMatchers []services.GCPMatcher
+	GCPMatchers []types.GCPMatcher
 	// Emitter is events emitter, used to submit discrete events
 	Emitter apievents.Emitter
 	// AccessPoint is a discovery access point
@@ -292,7 +292,7 @@ func (s *Server) initAzureWatchers(ctx context.Context, matchers []services.Azur
 }
 
 // initGCPWatchers starts GCP resource watchers based on types provided.
-func (s *Server) initGCPWatchers(ctx context.Context, matchers []services.GCPMatcher) error {
+func (s *Server) initGCPWatchers(ctx context.Context, matchers []types.GCPMatcher) error {
 	// return early if there are no matchers as GetGCPGKEClient causes
 	// an error if there are no credentials present
 	if len(matchers) == 0 {

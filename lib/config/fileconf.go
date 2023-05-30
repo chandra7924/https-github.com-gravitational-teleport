@@ -134,6 +134,8 @@ func ReadConfig(reader io.Reader) (*FileConfig, error) {
 	}
 	var fc FileConfig
 
+	// import k8sYaml "sigs.k8s.io/yaml"
+	//if err := k8sYaml.Unmarshal(bytes, &fc, k8sYaml.DisallowUnknownFields); err != nil {
 	if err := yaml.UnmarshalStrict(bytes, &fc); err != nil {
 		// Remove all newlines in the YAML error, to avoid escaping when printing.
 		return nil, trace.BadParameter("failed parsing the config file: %s", strings.Replace(err.Error(), "\n", "", -1))
@@ -670,7 +672,7 @@ func checkAndSetDefaultsForAzureInstaller(matcher *AzureMatcher) error {
 
 // checkAndSetDefaultsForGCPMatchers sets the default values for GCP matchers
 // and validates the provided types.
-func checkAndSetDefaultsForGCPMatchers(matcherInput []GCPMatcher) error {
+func checkAndSetDefaultsForGCPMatchers(matcherInput []types.GCPMatcher) error {
 	for i := range matcherInput {
 		matcher := &matcherInput[i]
 
@@ -709,14 +711,9 @@ func checkAndSetDefaultsForGCPMatchers(matcherInput []GCPMatcher) error {
 
 // JoinParams configures the parameters for Simplified Node Joining.
 type JoinParams struct {
-	TokenName string           `yaml:"token_name"`
-	Method    types.JoinMethod `yaml:"method"`
-	Azure     AzureJoinParams  `yaml:"azure,omitempty"`
-}
-
-// AzureJoinParams configures the parameters specific to the Azure join method.
-type AzureJoinParams struct {
-	ClientID string `yaml:"client_id"`
+	TokenName string                `yaml:"token_name"`
+	Method    types.JoinMethod      `yaml:"method"`
+	Azure     types.AzureJoinParams `yaml:"azure,omitempty"`
 }
 
 // ConnectionRate configures rate limiter
@@ -1542,7 +1539,7 @@ type Discovery struct {
 	AzureMatchers []AzureMatcher `yaml:"azure,omitempty"`
 
 	// GCPMatchers are used to match GCP resources.
-	GCPMatchers []GCPMatcher `yaml:"gcp,omitempty"`
+	GCPMatchers []types.GCPMatcher `yaml:"gcp,omitempty"`
 
 	// DiscoveryGroup is the name of the discovery group that the current
 	// discovery service is a part of.
@@ -1552,18 +1549,6 @@ type Discovery struct {
 	// for all discovery services. If different agents are used to discover different
 	// sets of cloud resources, this field must be different for each set of agents.
 	DiscoveryGroup string `yaml:"discovery_group,omitempty"`
-}
-
-// GCPMatcher matches GCP resources.
-type GCPMatcher struct {
-	// Types are GKE resource types to match: "gke".
-	Types []string `yaml:"types,omitempty"`
-	// Locations are GKE locations to search resources for.
-	Locations []string `yaml:"locations,omitempty"`
-	// Tags are GCP labels to match.
-	Tags map[string]apiutils.Strings `yaml:"tags,omitempty"`
-	// ProjectIDs are the GCP project ID where the resources are deployed.
-	ProjectIDs []string `yaml:"project_ids,omitempty"`
 }
 
 // CommandLabel is `command` section of `ssh_service` in the config file
@@ -1711,7 +1696,7 @@ type AWSMatcher struct {
 	InstallParams *InstallParams `yaml:"install,omitempty"`
 	// SSM provides options to use when sending a document command to
 	// an EC2 node
-	SSM AWSSSM `yaml:"ssm,omitempty"`
+	SSM types.AWSSSM `yaml:"ssm,omitempty"`
 }
 
 // InstallParams sets join method to use on discovered nodes
@@ -1751,13 +1736,6 @@ func (ip *InstallParams) Parse() (services.InstallerParams, error) {
 	}
 
 	return install, nil
-}
-
-// AWSSSM provides options to use when executing SSM documents
-type AWSSSM struct {
-	// DocumentName is the name of the document to use when executing an
-	// SSM command
-	DocumentName string `yaml:"document_name,omitempty"`
 }
 
 // AzureMatcher matches Azure resources.

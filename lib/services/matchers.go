@@ -44,13 +44,6 @@ func ResourceMatchersToTypes(in []ResourceMatcher) []*types.DatabaseResourceMatc
 	return out
 }
 
-// AWSSSM provides options to use when executing SSM documents
-type AWSSSM struct {
-	// DocumentName is the name of the document to use when executing an
-	// SSM command
-	DocumentName string
-}
-
 // InstallerParams are passed to the AWS SSM document or installation script
 type InstallerParams struct {
 	// JoinMethod is the method to use when joining the cluster
@@ -107,7 +100,7 @@ type AWSMatcher struct {
 	Params InstallerParams
 	// SSM provides options to use when sending a document command to
 	// an EC2 node
-	SSM *AWSSSM
+	SSM *types.AWSSSM
 }
 
 // AzureMatcher matches Azure databases.
@@ -124,18 +117,6 @@ type AzureMatcher struct {
 	ResourceTags types.Labels
 	// Params are passed to Azure when installing.
 	Params InstallerParams
-}
-
-// GCPMatcher matches GCP resources.
-type GCPMatcher struct {
-	// Types are GKE resource types to match: "gke".
-	Types []string `yaml:"types,omitempty"`
-	// Locations are GCP locations to search resources for.
-	Locations []string `yaml:"locations,omitempty"`
-	// Tags are GCP labels to match.
-	Tags types.Labels `yaml:"tags,omitempty"`
-	// ProjectIDs are the GCP project IDs where the resources are deployed.
-	ProjectIDs []string `yaml:"project_ids,omitempty"`
 }
 
 // SimplifyAzureMatchers returns simplified Azure Matchers.

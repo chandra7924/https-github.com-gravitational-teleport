@@ -206,7 +206,7 @@ func TestSampleConfig(t *testing.T) {
 			require.NoError(t, err)
 
 			// validate a couple of values:
-			require.Equal(t, fc.Global.DataDir, defaults.DataDir)
+			require.Equal(t, defaults.DataDir, fc.Global.DataDir)
 			require.Equal(t, fc.Logger.Severity, "INFO")
 			require.Equal(t, testCase.expectClusterName, fc.Auth.ClusterName)
 			require.Equal(t, testCase.expectLicenseFile, fc.Auth.LicenseFile)
@@ -364,7 +364,7 @@ func TestConfigReading(t *testing.T) {
 						SSHDConfig: "/etc/ssh/sshd_config",
 						ScriptName: "default-installer",
 					},
-					SSM: AWSSSM{DocumentName: "TeleportDiscoveryInstaller"},
+					SSM: types.AWSSSM{DocumentName: "TeleportDiscoveryInstaller"},
 				},
 			},
 			AzureMatchers: []AzureMatcher{
@@ -378,7 +378,7 @@ func TestConfigReading(t *testing.T) {
 					Subscriptions:  []string{"sub1"},
 				},
 			},
-			GCPMatchers: []GCPMatcher{
+			GCPMatchers: []types.GCPMatcher{
 				{
 					Types:     []string{"gke"},
 					Locations: []string{"uswest1"},
@@ -1480,7 +1480,7 @@ func makeConfigFixture() string {
 		},
 	}
 
-	conf.Discovery.GCPMatchers = []GCPMatcher{
+	conf.Discovery.GCPMatchers = []types.GCPMatcher{
 		{
 			Types:     []string{"gke"},
 			Locations: []string{"uswest1"},

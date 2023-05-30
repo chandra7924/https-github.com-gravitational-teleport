@@ -368,7 +368,7 @@ func TestDiscoveryServer(t *testing.T) {
 					Types:   []string{"ec2"},
 					Regions: []string{"eu-central-1"},
 					Tags:    map[string]utils.Strings{"teleport": {"yes"}},
-					SSM:     &services.AWSSSM{DocumentName: "document"},
+					SSM:     &types.AWSSSM{DocumentName: "document"},
 					Params: services.InstallerParams{
 						InstallTeleport: true,
 					},
@@ -423,7 +423,7 @@ func TestDiscoveryKube(t *testing.T) {
 		existingKubeClusters          []types.KubeCluster
 		awsMatchers                   []services.AWSMatcher
 		azureMatchers                 []services.AzureMatcher
-		gcpMatchers                   []services.GCPMatcher
+		gcpMatchers                   []types.GCPMatcher
 		expectedClustersToExistInAuth []types.KubeCluster
 		clustersNotUpdated            []string
 		expectedAssumedRoles          []string
@@ -597,7 +597,7 @@ func TestDiscoveryKube(t *testing.T) {
 		{
 			name:                 "no clusters in auth server, import 2 prod clusters from GKE",
 			existingKubeClusters: []types.KubeCluster{},
-			gcpMatchers: []services.GCPMatcher{
+			gcpMatchers: []types.GCPMatcher{
 				{
 					Types:      []string{"gke"},
 					Locations:  []string{"*"},
